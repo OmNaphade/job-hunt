@@ -8,21 +8,34 @@
 
 ## Table of Contents
 
-1. [Architecture Overview](#architecture-overview)
-2. [Microservices Detail](#microservices-detail)
-3. [Service Communication](#service-communication)
-4. [Security Model](#security-model)
-5. [API Reference](#api-reference)
+1. [Application Description](#application-description)
+2. [Architecture Overview](#architecture-overview)
+3. [Microservices Detail](#microservices-detail)
+4. [Service Communication](#service-communication)
+5. [Security Model](#security-model)
+6. [API Reference](#api-reference)
    - [Auth Service](#1-auth-service-8081)
    - [User/Profile Service](#2-userprofile-service-8082)
    - [Job Service](#3-job-service-8083)
    - [Company Service](#4-company-service-8084)
    - [Application Service](#5-application-service-8085)
    - [Notification Service](#6-notification-service-8086)
-6. [Event-Driven Flows](#event-driven-flows)
-7. [Monitoring & Observability](#monitoring--observability)
-8. [Error Handling](#error-handling)
-9. [User Flows](#user-flows)
+7. [Event-Driven Flows](#event-driven-flows)
+8. [Monitoring & Observability](#monitoring--observability)
+9. [Error Handling](#error-handling)
+10. [User Flows](#user-flows)
+
+---
+
+## Application Description
+
+Job Portal is a role-based hiring platform that manages the full recruitment lifecycle:
+
+- Candidates (JOB_SEEKER) create profiles, browse jobs, apply, and track status updates.
+- Recruiters (RECRUITER) manage companies, post jobs, and process applications.
+- Admins (ADMIN) perform cross-system oversight and protected operations such as user/company moderation and monitoring views.
+
+The frontend communicates through API Gateway, which routes requests to specialized Spring Boot microservices. PostgreSQL stores transactional data, and Kafka powers asynchronous notification flows for application status updates.
 
 ---
 
@@ -338,6 +351,25 @@ Errors: `409` duplicate email · `400` validation failed
 // Response 200 — same structure as register + userId
 ```
 Errors: `404` user not found · `401` wrong password
+
+### Admin Login Availability
+
+- Self-registration for `ADMIN` is intentionally blocked.
+- Admin access is provided through deterministic seed configuration in `auth_service`.
+- In Docker Compose runs, admin seeding is enabled by default.
+
+Default admin credentials for local/CI compose setup:
+
+- Email: `admin@jobportal.local`
+- Password: `Pass123!`
+
+Compose seed controls:
+
+- `ADMIN_SEED_ENABLED=true`
+- `ADMIN_SEED_EMAIL=admin@jobportal.local`
+- `ADMIN_SEED_PASSWORD=Pass123!`
+
+If you run services manually (without compose), set these env vars for `auth_service` before startup so an admin user is created on boot.
 
 ---
 
@@ -978,6 +1010,7 @@ PATCH /api/jobs/1/status?status=CLOSED
 Admin seed note:
 
 - In Docker Compose environments, auth service can seed a deterministic admin user for local/CI testing.
+- Default seeded admin credentials are `admin@jobportal.local` / `Pass123!`.
 - Seed controls are environment-driven:
   - `ADMIN_SEED_ENABLED`
   - `ADMIN_SEED_EMAIL`
