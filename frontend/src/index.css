@@ -1,0 +1,125 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Space+Grotesk:wght@500;700&display=swap');
+@import 'tailwindcss';
+
+:root {
+  font-family: 'Outfit', sans-serif;
+  color: #0f172a;
+  background-color: #f8fafc;
+  --surface: #ffffff;
+  --surface-soft: #f8fafc;
+  --text: #0f172a;
+  --muted: #475569;
+  --stroke: #dbe4ef;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 10% -20%, rgba(125, 211, 252, 0.35), transparent 28%),
+    radial-gradient(circle at 90% 0%, rgba(253, 230, 138, 0.35), transparent 32%),
+    linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  color: var(--text);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+p {
+  line-height: 1.55;
+}
+
+h1,
+h2,
+h3,
+.nav-title {
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
+}
+
+input,
+textarea,
+select {
+  background: var(--surface);
+  border-color: var(--stroke);
+  transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+}
+
+button {
+  transition: transform 120ms ease, box-shadow 160ms ease, filter 160ms ease;
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+a {
+  color: inherit;
+  text-underline-offset: 2px;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.toast-in {
+  animation: toast-in 180ms ease-out;
+}
+
+main {
+  animation: rise-in 300ms ease-out;
+}
+
+/* Consistent page rhythm on small screens */
+@media (max-width: 640px) {
+  main {
+    padding-top: 1rem;
+    padding-bottom: 1.25rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

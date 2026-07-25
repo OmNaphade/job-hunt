@@ -1,0 +1,39 @@
+{
+  "title": "Job Portal - Kafka and DB",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Kafka Consumer Lag",
+      "targets": [
+        {
+          "expr": "kafka_consumergroup_lag_sum"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Active DB Connections",
+      "targets": [
+        {
+          "expr": "hikaricp_connections_active"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+    },
+    {
+      "type": "timeseries",
+      "title": "DB Connection Saturation",
+      "targets": [
+        {
+          "expr": "hikaricp_connections_active / hikaricp_connections_max"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 }
+    }
+  ]
+}

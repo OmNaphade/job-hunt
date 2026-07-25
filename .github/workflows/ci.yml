@@ -1,0 +1,257 @@
+name: CI — Job Portal Backend
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  frontend-build-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: ./frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Test frontend
+        run: npm run test
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-dist
+          path: ./frontend/dist/
+
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: manager
+          POSTGRES_DB: jobapp_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    strategy:
+      matrix:
+        service:
+          - auth_service
+          - user_service
+          - job_service
+          - company_service
+          - application_service
+          - notification_service
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build ${{ matrix.service }}
+        working-directory: ./${{ matrix.service }}
+        env:
+          JWT_SECRET: test-secret-key-for-ci-pipeline-only-32c
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/jobapp_db
+          SPRING_DATASOURCE_USERNAME: postgres
+          SPRING_DATASOURCE_PASSWORD: manager
+          SPRING_CLOUD_VAULT_ENABLED: false
+          EUREKA_CLIENT_ENABLED: false
+        run: ./mvnw clean verify -DskipTests=false --no-transfer-progress
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.service }}
+          path: ./${{ matrix.service }}/target/surefire-reports/
+
+      - name: Upload service artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jar-${{ matrix.service }}
+          path: ./${{ matrix.service }}/target/*.jar
+
+  build-infra:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build service_registry
+        working-directory: ./service_registry
+        run: ./mvnw clean package -DskipTests --no-transfer-progress
+
+      - name: Build config_server
+        working-directory: ./config_server
+        run: ./mvnw clean package -DskipTests --no-transfer-progress
+
+      - name: Build api_gateway
+        working-directory: ./api_gateway
+        run: ./mvnw clean package -DskipTests --no-transfer-progress
+
+      - name: Upload infra artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: infra-jars
+          path: |
+            ./service_registry/target/*.jar
+            ./config_server/target/*.jar
+            ./api_gateway/target/*.jar
+
+  security-baseline:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Dependency review (fail on high+)
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: ./frontend/package-lock.json
+
+      - name: Frontend audit (high+)
+        working-directory: ./frontend
+        run: npm audit --audit-level=high
+
+  ci-contract-and-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Gateway contract compile check
+        working-directory: ./api_gateway
+        run: ./mvnw clean compile --no-transfer-progress
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: ./frontend/package-lock.json
+
+      - name: Frontend lint
+        working-directory: ./frontend
+        run: npm ci && npm run lint
+
+      - name: Install Playwright browsers
+        working-directory: ./frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Frontend E2E smoke
+        working-directory: ./frontend
+        run: npm run test:e2e
+
+  ci-integration-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Start full stack
+        env:
+          JWT_SECRET: test-secret-key-for-ci-pipeline-only-32c
+        run: docker compose up -d --build
+
+      - name: Wait and smoke test gateway health and guards
+        shell: bash
+        run: |
+          set -e
+
+          for i in {1..60}; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/actuator/health || true)
+            if [ "$code" -eq 200 ] || [ "$code" -eq 401 ]; then
+              break
+            fi
+            sleep 5
+          done
+
+          gateway_health_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/actuator/health)
+          if [ "$gateway_health_status" -ne 200 ] && [ "$gateway_health_status" -ne 401 ]; then
+            echo "Expected 200 or 401 for /actuator/health, got $gateway_health_status"
+            exit 1
+          fi
+
+          auth_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/auth/login)
+          if [ "$auth_status" -ne 401 ] && [ "$auth_status" -ne 403 ] && [ "$auth_status" -ne 405 ]; then
+            echo "Expected 401/403/405 for /api/auth/login without body, got $auth_status"
+            exit 1
+          fi
+
+          jobs_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/jobs)
+          if [ "$jobs_status" -ne 401 ]; then
+            echo "Expected 401 for /api/jobs without token, got $jobs_status"
+            exit 1
+          fi
+
+      - name: Run synthetic and journey scripts
+        shell: pwsh
+        run: |
+          ./scripts/synthetic-checks.ps1
+          ./scripts/journey-checks.ps1
+
+      - name: Stop stack and collect logs
+        if: always()
+        run: |
+          docker compose logs > compose-smoke.log || true
+          docker compose down -v || true
+
+      - name: Upload integration logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compose-smoke-logs
+          path: compose-smoke.log

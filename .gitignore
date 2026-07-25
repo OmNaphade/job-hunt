@@ -1,0 +1,26 @@
+# IDE
+.idea/
+.vscode/
+
+# Java / Maven
+**/target/
+**/.mvn/wrapper/maven-wrapper.jar
+*.class
+*.log
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Environment and local overrides
+.env
+.env.local
+*.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime logs and temp
+**/logs/
+*.tmp

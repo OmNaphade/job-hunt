@@ -1,0 +1,57 @@
+<configuration>
+
+    <!-- ========================= -->
+    <!-- 🔹 LOG PATTERN -->
+    <!-- ========================= -->
+    <property name="LOG_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{correlationId}] %logger{36} - %msg%n"/>
+
+    <!-- ========================= -->
+    <!-- 🔹 CONSOLE APPENDER -->
+    <!-- ========================= -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- ========================= -->
+    <!-- 🔹 FILE APPENDER (PRODUCTION READY) -->
+    <!-- ========================= -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+
+        <!-- Active log file -->
+        <file>auth_service/logs/auth-service.log</file>
+
+        <!-- Rolling policy: Size + Time -->
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+
+            <!-- File naming -->
+            <fileNamePattern>user_service/logs/user-service-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+
+            <!-- Max size per file -->
+            <maxFileSize>10MB</maxFileSize>
+
+            <!-- Keep logs for 7 days -->
+            <maxHistory>7</maxHistory>
+
+            <!-- Total disk usage cap -->
+            <totalSizeCap>100MB</totalSizeCap>
+
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+
+    </appender>
+
+    <!-- ========================= -->
+    <!-- 🔹 ROOT LOGGER -->
+    <!-- ========================= -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+
+</configuration>
