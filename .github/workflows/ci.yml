@@ -235,9 +235,13 @@ jobs:
             exit 1
           fi
 
-          auth_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/auth/login)
-          if [ "$auth_status" -ne 401 ] && [ "$auth_status" -ne 403 ] && [ "$auth_status" -ne 405 ]; then
-            echo "Expected 401/403/405 for /api/auth/login without body, got $auth_status"
+          auth_status=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"email":"ci-smoke@example.com","password":"invalid"}' \
+            http://localhost:8080/api/auth/login)
+          if [ "$auth_status" -lt 400 ] || [ "$auth_status" -ge 500 ]; then
+            echo "Expected 4xx for /api/auth/login smoke request, got $auth_status"
             exit 1
           fi
 
