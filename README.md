@@ -93,6 +93,7 @@ Key variables:
 | Variable | Description | Default |
 |---|---|---|
 | `JWT_SECRET` | JWT signing secret for services | `default-dev-secret-key-change-in-production-32chars` |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated frontend origins allowed by API Gateway CORS | `http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173` |
 | `ADMIN_SEED_ENABLED` | Enable deterministic admin seed in auth service | `true` (compose) |
 | `ADMIN_SEED_EMAIL` | Seeded admin email | `admin@jobportal.local` |
 | `ADMIN_SEED_PASSWORD` | Seeded admin password | `Pass123!` |

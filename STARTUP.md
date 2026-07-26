@@ -80,6 +80,7 @@ java -jar notification_service\target\notification_service-0.0.1-SNAPSHOT.jar --
 | Variable | Default | Description |
 |---|---|---|
 | `JWT_SECRET` | `default-dev-secret-key-change-in-production-32chars` | JWT signing secret |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173` | API Gateway allowed frontend origins (comma-separated) |
 | `DB_HOST` | `localhost` | PostgreSQL host |
 | `DB_PORT` | `5432` | PostgreSQL port |
 | `DB_NAME` | `jobapp_db` | Database name |
