@@ -8,6 +8,28 @@ Two deployment scripts are provided:
 
 Both scripts are **Bash scripts designed for GitHub Actions** (Linux runners). They handle SSH-based deployment to remote servers.
 
+> ⚠️ **Current status: deployment is NOT active yet.**
+> No staging/production servers exist, so the real SSH + Docker logic in both
+> scripts is **commented out**. Each script prints a placeholder message and
+> exits successfully, keeping the pipeline green.
+>
+> When your servers are ready, follow **"Activating Real Deployment"** below.
+
+---
+
+## Activating Real Deployment
+
+1. **Provision servers** (see "Setup Server for Deployment" below).
+2. **Add GitHub secrets** (*Settings → Secrets and variables → Actions*):
+   - Staging: `STAGING_DEPLOY_KEY`, `STAGING_HOST`, `STAGING_USER`
+   - Production: `PROD_DEPLOY_KEY`, `PROD_HOST`, `PROD_USER`
+3. **Uncomment the `REAL DEPLOYMENT` block** in:
+   - `scripts/deploy-staging.sh`
+   - `scripts/deploy-production.sh`
+4. **Adjust** the deploy directory (`/app/job-portal`) and commands to match
+   your infrastructure.
+5. **Push** to `develop` (staging) or `main` (production) to trigger it.
+
 ---
 
 ## Environment Variables Required

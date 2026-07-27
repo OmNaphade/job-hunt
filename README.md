@@ -174,6 +174,34 @@ docker compose up -d --build
 
 For production, externalize secrets and service URLs via environment variables and use managed Postgres/Kafka infrastructure.
 
+### CI/CD Pipeline
+
+A GitHub Actions pipeline (`.github/workflows/ci.yml`) runs on every push and PR:
+
+- **Build & test** — frontend, backend microservices (matrix), and infra services
+- **Coverage** — frontend + backend coverage uploaded to Codecov
+- **Security** — dependency review and `npm audit` on PRs
+- **Lint & contract** — ESLint, gateway compile check, Playwright E2E smoke
+- **Integration smoke** — full stack via `docker compose` with synthetic/journey checks
+- **Docker images** — built and pushed to GHCR on push to `main`/`develop`
+- **Deploy** — `deploy-staging` (on `develop`) and `deploy-production` (on `main`)
+
+> **Deployment is not wired to real servers yet.** The deploy jobs run
+> `scripts/deploy-staging.sh` and `scripts/deploy-production.sh`, but the actual
+> SSH/Docker deployment logic in those scripts is **commented out** so the
+> pipeline stays green. Each job currently prints a placeholder message and
+> succeeds.
+>
+> **To enable real deployments:**
+> 1. Add GitHub secrets under *Settings → Secrets and variables → Actions*:
+>    - Staging: `STAGING_DEPLOY_KEY`, `STAGING_HOST`, `STAGING_USER`
+>    - Production: `PROD_DEPLOY_KEY`, `PROD_HOST`, `PROD_USER`
+> 2. Uncomment the `REAL DEPLOYMENT` block in the relevant deploy script.
+> 3. Adjust the paths/commands to match your infrastructure.
+>
+> See [`DEPLOYMENT_SCRIPTS.md`](DEPLOYMENT_SCRIPTS.md) for full setup instructions.
+
+
 ## Roadmap
 
 - [ ] Expand integration test coverage for failure scenarios
