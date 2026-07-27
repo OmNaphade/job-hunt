@@ -1,4 +1,4 @@
-# Job Portal Platform
+﻿# Job Portal Platform
 
 Production-style job portal platform with microservices backend and role-based frontend, built for hiring workflows across candidates, recruiters, and admins.
 
@@ -6,26 +6,28 @@ Production-style job portal platform with microservices backend and role-based f
 [![Version](https://img.shields.io/badge/version-1.0.0-informational.svg)](https://github.com/OmNaphade/job-portal)
 [![Runtime](https://img.shields.io/badge/java-21-orange.svg)](https://www.oracle.com/java/)
 
+## Latest Project Details
+
+- Services: 9 microservices (auth, user, job, company, application, notification, api_gateway, config_server, service_registry)
+- Frontend: React + Vite (Node 22)
+- Backend: Java 21 (Spring Boot)
+- Database: PostgreSQL (used in CI as service)
+- CI: GitHub Actions (tests, build, integration smoke, Docker image build)
+- Deployment: SSH-based scripts are present but **deployment is currently inactive** (scripts are templates). See `DEPLOYMENT_SCRIPTS.md` for activation steps.
+- Code Coverage: frontend (Vitest) + backend (JaCoCo) reported to Codecov (optional setup)
+
 ## Table of Contents
 
 - [About](#about)
+- [Latest Project Details](#latest-project-details)
 - [Built With](#built-with)
-- [Features](#features)
-- [Demo](#demo)
 - [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Configuration](#configuration)
 - [Usage](#usage)
 - [Project Structure](#project-structure)
 - [Testing](#testing)
 - [Deployment](#deployment)
-- [Roadmap](#roadmap)
 - [Contributing](#contributing)
-- [Security](#security)
 - [License](#license)
-- [Acknowledgements](#acknowledgements)
-- [Contact](#contact)
 
 ## About
 
@@ -33,31 +35,10 @@ This project provides a complete hiring lifecycle system: authentication, profil
 
 ## Built With
 
-- Java 21, Spring Boot 3.5.11, Spring Cloud 2025.0.1
+- Java 21, Spring Boot
 - React + Vite + Tailwind CSS
-- PostgreSQL, Kafka, Zookeeper
+- PostgreSQL, Kafka (optional)
 - Docker Compose, GitHub Actions
-
-## Features
-
-- Role-based auth (JOB_SEEKER, RECRUITER, ADMIN) with JWT
-- Microservices architecture with gateway, config server, and service registry
-- End-to-end flows for candidate applications and recruiter job management
-- Admin monitoring summary endpoint via API gateway
-- CI pipeline for backend/frontend builds and integration smoke checks
-
-## Demo
-
-Local demo via Docker Compose:
-
-```bash
-docker compose up -d --build
-```
-
-Then open:
-
-- API Gateway: http://localhost:8080
-- Eureka: http://localhost:8761
 
 ## Getting Started
 
@@ -66,7 +47,6 @@ Then open:
 - Java 21+
 - Node.js 22+
 - Docker + Docker Compose
-- PowerShell (for provided scripts)
 
 ### Installation
 
@@ -75,7 +55,7 @@ git clone https://github.com/OmNaphade/job-portal.git
 cd job-portal
 ```
 
-For frontend local development:
+Frontend:
 
 ```bash
 cd frontend
@@ -88,15 +68,7 @@ npm install
 cp .env.example .env
 ```
 
-Key variables:
-
-| Variable | Description | Default |
-|---|---|---|
-| `JWT_SECRET` | JWT signing secret for services | `default-dev-secret-key-change-in-production-32chars` |
-| `CORS_ALLOWED_ORIGINS` | Comma-separated frontend origins allowed by API Gateway CORS | `http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173` |
-| `ADMIN_SEED_ENABLED` | Enable deterministic admin seed in auth service | `true` (compose) |
-| `ADMIN_SEED_EMAIL` | Seeded admin email | `admin@jobportal.local` |
-| `ADMIN_SEED_PASSWORD` | Seeded admin password | `Pass123!` |
+Key variables are documented in the repository `.env.example` and the services' README.
 
 ## Usage
 
@@ -106,133 +78,46 @@ Start full local stack:
 docker compose up -d --build
 ```
 
-Run validation scripts:
-
-```powershell
-./scripts/synthetic-checks.ps1
-./scripts/journey-checks.ps1
-```
-
-Start frontend only:
+Frontend dev:
 
 ```bash
 cd frontend
 npm run dev
 ```
 
-## Project Structure
-
-```text
-.
-├── api_gateway/
-├── auth_service/
-├── user_service/
-├── job_service/
-├── company_service/
-├── application_service/
-├── notification_service/
-├── service_registry/
-├── config_server/
-├── frontend/
-├── scripts/
-├── docker-compose.yml
-├── API_DOCS.md
-├── STARTUP.md
-└── README.md
-```
-
-## Testing
-
-Backend compile example:
-
-```powershell
-cd auth_service
-.\mvnw.cmd clean compile
-```
-
-Frontend tests:
-
-```bash
-cd frontend
-npm test
-```
-
-Integration smoke (local):
+Run validation scripts (PowerShell on Windows or use WSL):
 
 ```powershell
 ./scripts/synthetic-checks.ps1
 ./scripts/journey-checks.ps1
 ```
 
+## Project Structure
+
+- `frontend/` - React app
+- `auth_service/`, `user_service/`, `job_service/`, `company_service/`, `application_service/`, `notification_service/` - Java microservices
+- `api_gateway/`, `service_registry/`, `config_server/` - infra services
+- `scripts/` - helper scripts (synthetic checks, deployments templates)
+- `.github/workflows/ci.yml` - CI pipeline
+
+## Testing
+
+- Backend: `./mvnw clean verify` per-service
+- Frontend: `npm run test` (Vitest) and `npm run test:e2e` (Playwright)
+
 ## Deployment
 
-Containerized deployment is supported via Dockerfiles per service and root compose orchestration.
+Deployment templates exist in `scripts/deploy-staging.sh` and `scripts/deploy-production.sh` and detailed instructions are available in `DEPLOYMENT_SCRIPTS.md`.
 
-```bash
-docker compose up -d --build
-```
-
-For production, externalize secrets and service URLs via environment variables and use managed Postgres/Kafka infrastructure.
-
-### CI/CD Pipeline
-
-A GitHub Actions pipeline (`.github/workflows/ci.yml`) runs on every push and PR:
-
-- **Build & test** — frontend, backend microservices (matrix), and infra services
-- **Coverage** — frontend + backend coverage uploaded to Codecov
-- **Security** — dependency review and `npm audit` on PRs
-- **Lint & contract** — ESLint, gateway compile check, Playwright E2E smoke
-- **Integration smoke** — full stack via `docker compose` with synthetic/journey checks
-- **Docker images** — built and pushed to GHCR on push to `main`/`develop`
-- **Deploy** — `deploy-staging` (on `develop`) and `deploy-production` (on `main`)
-
-> **Deployment is not wired to real servers yet.** The deploy jobs run
-> `scripts/deploy-staging.sh` and `scripts/deploy-production.sh`, but the actual
-> SSH/Docker deployment logic in those scripts is **commented out** so the
-> pipeline stays green. Each job currently prints a placeholder message and
-> succeeds.
->
-> **To enable real deployments:**
-> 1. Add GitHub secrets under *Settings → Secrets and variables → Actions*:
->    - Staging: `STAGING_DEPLOY_KEY`, `STAGING_HOST`, `STAGING_USER`
->    - Production: `PROD_DEPLOY_KEY`, `PROD_HOST`, `PROD_USER`
-> 2. Uncomment the `REAL DEPLOYMENT` block in the relevant deploy script.
-> 3. Adjust the paths/commands to match your infrastructure.
->
-> See [`DEPLOYMENT_SCRIPTS.md`](DEPLOYMENT_SCRIPTS.md) for full setup instructions.
-
-
-## Roadmap
-
-- [ ] Expand integration test coverage for failure scenarios
-- [ ] Add production-grade observability dashboards and alerts
-- [ ] Add release versioning and changelog automation
+> Note: Deployment scripts are currently commented out and act as templates. To enable real deployments:
+> 1. Provision servers and ensure Docker is installed
+> 2. Add secrets in GitHub repo settings: `STAGING_DEPLOY_KEY`, `STAGING_HOST`, `STAGING_USER`, `PROD_DEPLOY_KEY`, `PROD_HOST`, `PROD_USER`
+> 3. Uncomment the `REAL DEPLOYMENT` block in the relevant script and adjust paths
 
 ## Contributing
 
-Contributions are welcome.
-
-1. Fork the repository
-2. Create a branch (`git checkout -b feature/your-change`)
-3. Commit (`git commit -m "feat: add your change"`)
-4. Push (`git push origin feature/your-change`)
-5. Open a Pull Request
-
-## Security
-
-Do not open public issues for sensitive vulnerabilities. Please contact the maintainer directly and include reproduction steps and impact.
+Contributions welcome. Please open issues or PRs.
 
 ## License
 
-License file is not currently included in the repository. Add a `LICENSE` file before publishing formal redistribution terms.
-
-## Acknowledgements
-
-- Spring Boot and Spring Cloud ecosystem
-- React, Vite, and Tailwind maintainers
-- PostgreSQL and Kafka open-source communities
-
-## Contact
-
-Maintainer:
-**Om Naphade** · [LinkedIn](https://linkedin.com/in/omnaphade) · [Portfolio](https://om-naphade.netlify.app) · [GitHub](https://github.com/OmNaphade)
+MIT
