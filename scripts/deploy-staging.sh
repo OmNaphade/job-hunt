@@ -7,6 +7,17 @@ set -e
 
 echo "🚀 Starting staging deployment..."
 
+# Skip gracefully if deployment secrets are not configured
+if [ -z "$DEPLOY_KEY" ] || [ -z "$DEPLOY_HOST" ] || [ -z "$DEPLOY_USER" ]; then
+  echo "⚠️  Deployment secrets not configured — skipping deployment."
+  echo "   To enable deployment, add these GitHub secrets:"
+  echo "     - STAGING_DEPLOY_KEY"
+  echo "     - STAGING_HOST"
+  echo "     - STAGING_USER"
+  echo "   See DEPLOYMENT_SCRIPTS.md for setup instructions."
+  exit 0
+fi
+
 # Setup SSH key
 mkdir -p ~/.ssh
 echo "$DEPLOY_KEY" > ~/.ssh/deploy_key
