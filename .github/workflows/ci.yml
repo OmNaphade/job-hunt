@@ -392,6 +392,7 @@ jobs:
         run: |
           chmod +x ./scripts/deploy-staging.sh
           ./scripts/deploy-staging.sh
+        shell: bash
 
   deploy-production:
     runs-on: ubuntu-latest
@@ -414,3 +415,4 @@ jobs:
         run: |
           chmod +x ./scripts/deploy-production.sh
           ./scripts/deploy-production.sh
+        shell: bash
