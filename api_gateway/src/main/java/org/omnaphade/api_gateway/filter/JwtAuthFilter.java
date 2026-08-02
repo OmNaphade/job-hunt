@@ -26,7 +26,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private static final List<String> PUBLIC_PATHS = List.of(
             "/api/auth/register",
             "/api/auth/login",
-            "/api/auth/refresh"
+            "/api/auth/refresh",
+            "/actuator/health",
+            "/actuator/info",
+            "/actuator/prometheus"
     );
 
     @Override
