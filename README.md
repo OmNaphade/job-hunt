@@ -12,9 +12,12 @@ Production-style job portal platform with microservices backend and role-based f
 - Frontend: React + Vite (Node 22)
 - Backend: Java 21 (Spring Boot)
 - Database: PostgreSQL (used in CI as service)
-- CI: GitHub Actions (tests, build, integration smoke, Docker image build)
+- CI: GitHub Actions (tests, build, integration smoke, Docker image build) — all 7 HTTP-facing services (including `api_gateway`) run their test suites in CI, not just build
 - Deployment: SSH-based scripts are present but **deployment is currently inactive** (scripts are templates). See `DEPLOYMENT_SCRIPTS.md` for activation steps.
-- Code Coverage: frontend (Vitest) + backend (JaCoCo) reported to Codecov (optional setup)
+- Code Coverage: frontend (Vitest) + backend (JaCoCo, wired via the root `pom.xml` for every module) reported to Codecov — the pipeline now actually produces and uploads `jacoco.xml` for every service; coverage % is only meaningful for `job_service`, `application_service`, and `auth_service` today, the rest still just have the Spring Boot stub test
+- Observability: Prometheus metrics + Zipkin distributed tracing on every service, Grafana dashboards in `operations/grafana/`, k6 load tests in `performance/k6/`
+- Security: gateway-level rate limiting (Resilience4j, per-client-IP) on top of the existing JWT + role-based `@PreAuthorize` model
+- Full API reference and architecture notes: see [`API_DOCS.md`](./API_DOCS.md)
 
 ## Table of Contents
 

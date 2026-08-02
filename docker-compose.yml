@@ -46,6 +46,17 @@ services:
       timeout: 10s
       retries: 5
 
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: jobportal-zipkin
+    ports:
+      - "9411:9411"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9411/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
   service-registry:
     build:
       context: .
@@ -107,6 +118,7 @@ services:
       - MONITORING_TARGETS_COMPANY=http://company-service:8084
       - MONITORING_TARGETS_APPLICATION=http://application-service:8085
       - MONITORING_TARGETS_NOTIFICATION=http://notification-service:8086
+      - ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
 
   auth-service:
     build:
@@ -132,6 +144,7 @@ services:
       - ADMIN_SEED_PASSWORD=Pass123!
       - SPRING_CLOUD_VAULT_ENABLED=false
       - SPRING_CLOUD_VAULT_FAIL_FAST=false
+      - ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
 
   user-service:
     build:
@@ -151,6 +164,7 @@ services:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka/
       - SPRING_CLOUD_VAULT_ENABLED=false
       - SPRING_CLOUD_VAULT_FAIL_FAST=false
+      - ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
 
   job-service:
     build:
@@ -173,6 +187,7 @@ services:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka/
       - SPRING_CLOUD_VAULT_ENABLED=false
       - SPRING_CLOUD_VAULT_FAIL_FAST=false
+      - ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
 
   company-service:
     build:
@@ -192,6 +207,7 @@ services:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka/
       - SPRING_CLOUD_VAULT_ENABLED=false
       - SPRING_CLOUD_VAULT_FAIL_FAST=false
+      - ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
 
   application-service:
     build:
@@ -214,6 +230,7 @@ services:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka/
       - SPRING_CLOUD_VAULT_ENABLED=false
       - SPRING_CLOUD_VAULT_FAIL_FAST=false
+      - ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
 
   notification-service:
     build:
@@ -238,6 +255,7 @@ services:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka/
       - SPRING_CLOUD_VAULT_ENABLED=false
       - SPRING_CLOUD_VAULT_FAIL_FAST=false
+      - ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
 
 volumes:
   postgres_data:

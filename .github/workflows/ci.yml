@@ -83,6 +83,7 @@ jobs:
           - company_service
           - application_service
           - notification_service
+          - api_gateway
 
     steps:
       - name: Checkout code

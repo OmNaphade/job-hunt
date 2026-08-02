@@ -79,6 +79,7 @@ public class MonitoringAggregationService {
             double circuitOpen = parseMetric(text, "resilience4j_circuitbreaker_state", "state=\"open\"");
             double threads = parseMetric(text, "jvm_threads_live_threads", null);
             double gcPauses = parseMetric(text, "jvm_gc_pause_seconds_count", null);
+            double rateLimitRejected = parseMetric(text, "gateway_rate_limit_rejected_total", null);
 
             return new ServiceSnapshot(
                     target.key(),
@@ -91,6 +92,7 @@ public class MonitoringAggregationService {
                     circuitOpen,
                     threads,
                     gcPauses,
+                    rateLimitRejected,
                     sampledAt.toString(),
                     null
             );
@@ -99,6 +101,7 @@ public class MonitoringAggregationService {
                     target.key(),
                     target.label(),
                     "DOWN",
+                    0,
                     0,
                     0,
                     0,
@@ -166,6 +169,7 @@ public class MonitoringAggregationService {
             double circuitOpen,
             double threads,
             double gcPauses,
+            double rateLimitRejected,
             String sampledAt,
             String error
     ) {

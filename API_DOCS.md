@@ -1,8 +1,15 @@
 # Job Portal — API & Architecture Documentation
 
-> **Last updated:** 2026-07-25  
+> **Last updated:** 2026-08-02  
 > **Stack:** Java 21 · Spring Boot 3.5.11 · Spring Cloud 2025.0.1 · PostgreSQL · Kafka  
-> **SOLID compliance:** Verified — SRP, OCP, LSP, ISP, DIP applied across all services
+> **SOLID compliance:** Verified — SRP, OCP, LSP, ISP, DIP applied across all services  
+> **Test coverage:** `job_service` and `application_service` have real unit tests over their service layer
+> (pagination/search/CRUD logic, the `ApplicationStatus` state machine, Kafka publish behavior).
+> `auth_service` has an integration test over register/login. `user_service`, `company_service`, and
+> `notification_service` still only have the Spring Boot–generated `contextLoads()` stub — real coverage
+> there is the next priority. `api_gateway`'s own tests (CORS, rate limiter) now run in CI too — previously
+> only compiled with `-DskipTests`. `jacoco-maven-plugin` is wired into the root `pom.xml` for every module,
+> so the CI coverage-upload step (which always expected a `jacoco.xml`) now actually gets one.
 
 ---
 
@@ -285,6 +292,22 @@ Layer 3: @PreAuthorize (method-level)
   → authentication.name == #userId.toString() or hasRole('ADMIN') — self-or-admin
 ```
 
+### Rate Limiting
+Enforced at the gateway (`api_gateway`), before requests are routed to any backend service, keyed per
+client IP via Resilience4j `RateLimiter`:
+
+| Bucket | Applies to | Limit | Window |
+|---|---|---|---|
+| `login` | `POST /api/auth/login`, `POST /api/auth/register` | 5 requests | 60s |
+| `standard` | every other `/api/**` route | 100 requests | 60s |
+
+Exceeding the limit returns `429 Too Many Requests` with a `Retry-After` header and the standard error
+body. Client IP is read from `X-Forwarded-For` (first hop) if present, else the socket address.
+Limits are configurable via `rate-limit.login.limit`, `rate-limit.login.refresh-seconds`,
+`rate-limit.default.limit`, `rate-limit.default.refresh-seconds` on `api_gateway`.
+
+---
+
 ### Roles & Permissions Matrix
 | Endpoint | JOB_SEEKER | RECRUITER | ADMIN |
 |---|:---:|:---:|:---:|
@@ -305,6 +328,10 @@ Layer 3: @PreAuthorize (method-level)
 ---
 
 ## API Reference
+
+> **Interactive docs:** every service ships `springdoc-openapi` — browse and try requests live at
+> `http://localhost:{port}/swagger-ui.html` (raw spec at `/v3/api-docs`) once the service is running,
+> e.g. `http://localhost:8083/swagger-ui.html` for job_service.
 
 > **Auth header for protected endpoints:**
 > ```
@@ -540,7 +567,15 @@ Errors: `400` validation failed · `403` not recruiter/admin
 ---
 
 ### GET /api/jobs — Public
-Response: all jobs with skills array.
+Paginated. Query params: `page` (default `0`), `size` (default `20`), `sortBy` (default `createdAt`), `sortDir` (default `desc`).
+```json
+// Response 200
+{
+  "content": [ { "id": 5, "title": "Senior Backend Engineer", "...": "..." } ],
+  "totalElements": 42, "totalPages": 3,
+  "number": 0, "size": 20
+}
+```
 
 ---
 
@@ -550,12 +585,12 @@ Response: single job. Errors: `404` not found
 ---
 
 ### GET /api/jobs/company/{companyId} — Public
-Response: all jobs for a company.
+Paginated (same `page`/`size`/`sortBy`/`sortDir` params as above). Response: `Page<Job>` for the company.
 
 ---
 
 ### GET /api/jobs/search — Public
-All params optional. CAST-safe null handling for PostgreSQL.
+All filter params optional. CAST-safe null handling for PostgreSQL. Also paginated.
 
 | Param | Type | Example |
 |---|---|---|
@@ -564,13 +599,17 @@ All params optional. CAST-safe null handling for PostgreSQL.
 | `jobType` | string | `FULL_TIME` |
 | `minSalary` | double | `100000` |
 | `maxExperience` | int | `5` |
+| `page` | int | `0` (default) |
+| `size` | int | `20` (default) |
+| `sortBy` | string | `createdAt` (default) |
+| `sortDir` | string | `desc` (default) |
 
 Only returns `status=OPEN` jobs.
 
 ```
-GET /api/jobs/search?keyword=Java&minSalary=100000&jobType=FULL_TIME
+GET /api/jobs/search?keyword=Java&minSalary=100000&jobType=FULL_TIME&page=0&size=20
 ```
-Response: filtered array of job objects.
+Response: `Page<Job>` — filtered, sorted, paginated.
 
 ---
 
@@ -664,20 +703,17 @@ Response: `204 No Content`
 ## 5. Application Service (:8085)
 
 ### POST /api/applications 🔒 JOB_SEEKER only
-UserId is taken from JWT — not from request body.
+UserId is taken from JWT — not from request body. There is no cover-letter field; the DTO only carries `jobId`.
 ```json
 // Request
-{
-  "jobId": 1,
-  "coverLetter": "I am very interested in this role..."
-}
+{ "jobId": 1 }
 
 // Response 201
 {
   "id": 1, "userId": 4, "jobId": 1,
-  "coverLetter": "I am very interested...",
   "status": "APPLIED",
-  "appliedAt": "2026-07-25T20:00:00"
+  "appliedAt": "2026-07-25T20:00:00",
+  "updatedAt": "2026-07-25T20:00:00"
 }
 ```
 Errors: `400` already applied for this job · `403` not a job seeker
@@ -754,12 +790,12 @@ Notifications are created automatically via Kafka events from `application_servi
 ---
 
 ### GET /api/notifications 🔒
-Returns authenticated user's notifications, newest first.
+Paginated, newest first. Query params: `page` (default `0`), `size` (default `20`), `sortBy` (default `createdAt`), `sortDir` (default `desc`). Response: `Page<Notification>`.
 
 ---
 
 ### GET /api/notifications/unread 🔒
-Returns only `status=UNREAD` notifications.
+Same pagination params as above, filtered to `status=UNREAD`. Response: `Page<Notification>`.
 
 ---
 
@@ -838,7 +874,7 @@ Authorization behavior:
 ### Health Endpoints
 | Service | URL |
 |---|---|
-| api_gateway | `GET http://localhost:8080/actuator/health` *(secured in hardened setups; may return `401` without token)* |
+| api_gateway | `GET http://localhost:8080/actuator/health` *(public — exempted from the gateway's JWT filter alongside `/actuator/info` and `/actuator/prometheus`, so the admin monitoring dashboard can scrape it)* |
 | auth_service | `GET http://localhost:8081/actuator/health` |
 | user_service | `GET http://localhost:8082/actuator/health` |
 | job_service | `GET http://localhost:8083/actuator/health` |
@@ -852,7 +888,8 @@ Authorization behavior:
 ```
 
 ### Prometheus Metrics
-All 6 services expose Prometheus-format metrics at `/actuator/prometheus` (no auth required).
+All 7 services (gateway + 6 business services) expose Prometheus-format metrics at `/actuator/prometheus`
+(no auth required — see the Health Endpoints note above for the gateway).
 
 **Sample metrics available:**
 - `http_server_requests_seconds_count` — request counts by endpoint, status, method
@@ -860,6 +897,8 @@ All 6 services expose Prometheus-format metrics at `/actuator/prometheus` (no au
 - `jvm_memory_used_bytes` — JVM heap usage
 - `hikaricp_connections_active` — DB connection pool
 - `resilience4j_circuitbreaker_state` — circuit breaker state (auth_service)
+- `gateway_rate_limit_rejected_total{bucket="login"|"standard"}` — requests the gateway rejected with
+  `429` (api_gateway only)
 
 **Prometheus scrape config:**
 ```yaml
@@ -867,6 +906,7 @@ scrape_configs:
   - job_name: 'job-portal'
     static_configs:
       - targets:
+          - 'localhost:8080'  # api_gateway
           - 'localhost:8081'  # auth
           - 'localhost:8082'  # user
           - 'localhost:8083'  # job
@@ -877,22 +917,48 @@ scrape_configs:
     scrape_interval: 15s
 ```
 
+### Grafana Dashboards
+Pre-built dashboard JSON checked into `operations/grafana/dashboards/`:
+- `service-overview.json` — per-service request rate, latency, JVM/heap
+- `kafka-db-overview.json` — Kafka consumer lag and DB connection pool health
+
+Import into a Grafana instance pointed at the Prometheus scrape config above.
+
+### Load Testing
+k6 scripts in `performance/k6/`:
+- `login-search-apply.js` — job-seeker login → search → apply journey under load
+- `notifications-read.js` — notification read/list path under load
+
+Run with `k6 run performance/k6/login-search-apply.js` against a running stack.
+
 ### Distributed Tracing
-All services configured for Zipkin tracing (`management.tracing.sampling.probability=1.0`).
-Start Zipkin: `docker run -p 9411:9411 openzipkin/zipkin`
+All 7 HTTP-facing services (gateway + 6 business services) ship `micrometer-tracing-bridge-brave` +
+`zipkin-reporter-brave` and export spans at `management.tracing.sampling.probability=1.0`.
+
+- **Docker Compose:** a `zipkin` service is included (`openzipkin/zipkin`, port `9411`); every service
+  points at it via `ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans`.
+- **Local/manual runs:** defaults to `http://localhost:9411/api/v2/spans` — start Zipkin yourself with
+  `docker run -p 9411:9411 openzipkin/zipkin`.
+- View traces at `http://localhost:9411/zipkin/` once a request has flowed through the gateway.
 
 ### Request Logging
 `LoggingFilter` + `CorrelationIdFilter` active on all 6 services.  
 Each request logs: method, URI, status, duration, and `X-Correlation-ID` header for distributed tracing.
 
-### Monitoring Aggregation Endpoint (Gateway)
+### Admin Monitoring Dashboard
+
+There is a real, built-out admin monitoring page in the frontend (`/monitoring` route, `MonitoringPage.jsx`),
+backed by a gateway-side aggregation endpoint — not just a raw API for scripts.
 
 `GET /api/monitoring/summary` (via gateway)
 
-- Authorization: `ADMIN` role required
+- Authorization: `ADMIN` role required (checked against the `role` claim set by the gateway's JWT filter;
+  non-admins get `403`, unauthenticated requests get `401`)
 - Optional query parameters:
   - `services=gateway&services=auth&services=user...`
-- Returns: sampled service health + selected Prometheus-derived KPIs per service.
+- Returns: per-service health status plus KPIs scraped from that service's own `/actuator/prometheus`:
+  heap MB, CPU %, DB connection pool usage, cumulative request count, open circuit breakers, live thread
+  count, GC pause count, and (gateway only) cumulative `429` rate-limit rejections.
 
 Example:
 ```http
@@ -900,7 +966,14 @@ GET /api/monitoring/summary?services=gateway&services=job HTTP/1.1
 Authorization: Bearer <admin_token>
 ```
 
-Non-admin access returns `401` or `403` depending on authentication state.
+**Dashboard features:** per-service cards with sparkline history, pin/reorder, compact/expanded layout,
+configurable auto-refresh (10–60s or paused), per-widget show/hide, and a JSON snapshot export. An
+"Open Zipkin Traces" button links out to the Zipkin UI (`VITE_ZIPKIN_URL`, default
+`http://localhost:9411/zipkin/`) since trace search isn't reimplemented in-app.
+
+**What it does not cover:** distributed traces themselves (use the Zipkin link above) and per-client-IP
+rate-limiter state (only the aggregate rejection count is exposed, to avoid a high-cardinality
+per-IP metric).
 
 ### Local Validation Scripts
 
@@ -929,6 +1002,7 @@ All services use a standardized `ErrorResponseDTO`:
 | `403 Forbidden` | Missing token, insufficient role (`@PreAuthorize` denied) |
 | `404 Not Found` | Resource does not exist |
 | `409 Conflict` | Duplicate email, company name, recruiter, skill assignment |
+| `429 Too Many Requests` | Gateway-level rate limit exceeded (see [Rate Limiting](#rate-limiting)) |
 | `500 Internal Server Error` | Unexpected error (logged server-side) |
 
 ---

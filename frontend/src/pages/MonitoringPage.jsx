@@ -20,7 +20,10 @@ const DEFAULT_WIDGETS = {
   dbConnections: true,
   requests: true,
   circuitBreaker: true,
+  rateLimiting: true,
 }
+
+const ZIPKIN_URL = import.meta.env.VITE_ZIPKIN_URL || 'http://localhost:9411/zipkin/'
 
 const WIDGET_STORAGE_KEY = 'jp_monitor_widgets'
 const LAYOUT_STORAGE_KEY = 'jp_monitor_layout'
@@ -266,6 +269,14 @@ export default function MonitoringPage() {
         subtitle="Service health, runtime metrics, and customizable observability widgets for local operations."
         right={
           <div className="flex items-center gap-2">
+            <a
+              href={ZIPKIN_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+            >
+              Open Zipkin Traces
+            </a>
             <button
               type="button"
               onClick={exportSnapshot}
@@ -491,6 +502,19 @@ export default function MonitoringPage() {
                     <p className="text-xs uppercase tracking-widest text-slate-500">GC Pauses</p>
                     <p className="mt-1 text-lg font-black text-slate-900">{Math.round(m.gcPauses)}</p>
                   </div>
+                </div>
+              ) : null}
+
+              {widgets.rateLimiting && m.key === 'gateway' ? (
+                <div className="mt-3 rounded-xl border border-slate-200 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs uppercase tracking-widest text-slate-500">Rate Limit Rejections (429s)</p>
+                    <MetricBadge value={m.rateLimitRejected} warning={1} critical={20} />
+                  </div>
+                  <p className="mt-1 text-lg font-black text-slate-900">{Math.round(m.rateLimitRejected)}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Cumulative since startup, across the login (5/min) and standard (100/min) buckets.
+                  </p>
                 </div>
               ) : null}
             </SectionCard>
