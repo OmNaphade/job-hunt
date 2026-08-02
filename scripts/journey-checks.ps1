@@ -33,10 +33,8 @@ function Invoke-WithStatus {
     }
     catch {
         if ($_.Exception.Response) {
-            $resp = $_.Exception.Response
-            $code = [int]$resp.StatusCode
-            $reader = New-Object System.IO.StreamReader($resp.GetResponseStream())
-            $content = $reader.ReadToEnd()
+            $code = [int]$_.Exception.Response.StatusCode
+            $content = $_.ErrorDetails.Message
         }
         else {
             throw
