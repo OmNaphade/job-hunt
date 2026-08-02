@@ -302,9 +302,17 @@ client IP via Resilience4j `RateLimiter`:
 | `standard` | every other `/api/**` route | 100 requests | 60s |
 
 Exceeding the limit returns `429 Too Many Requests` with a `Retry-After` header and the standard error
-body. Client IP is read from `X-Forwarded-For` (first hop) if present, else the socket address.
+body. Client IP is read from `X-Forwarded-For` (first hop) if present, else the socket address. Bucket
+selection is by path only, not HTTP method — a `GET /api/auth/login` (as used by
+`synthetic-checks.ps1` to probe route availability) counts against the same `login` bucket as an actual
+`POST` login/register call.
+
 Limits are configurable via `rate-limit.login.limit`, `rate-limit.login.refresh-seconds`,
-`rate-limit.default.limit`, `rate-limit.default.refresh-seconds` on `api_gateway`.
+`rate-limit.default.limit`, `rate-limit.default.refresh-seconds` on `api_gateway`. In `docker-compose.yml`
+(used for both local dev and the CI `ci-integration-smoke` job), `RATE_LIMIT_LOGIN_LIMIT` defaults to `20`
+instead of the hardened `5` — the synthetic + journey validation scripts alone make ~6 calls against that
+bucket from a single shared IP, which would otherwise self-trigger `429`s. The conservative `5/60s`
+default in `application.properties` is untouched for bare/production runs.
 
 ---
 

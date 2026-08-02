@@ -119,6 +119,7 @@ services:
       - MONITORING_TARGETS_APPLICATION=http://application-service:8085
       - MONITORING_TARGETS_NOTIFICATION=http://notification-service:8086
       - ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
+      - RATE_LIMIT_LOGIN_LIMIT=${RATE_LIMIT_LOGIN_LIMIT:-20}
 
   auth-service:
     build:
