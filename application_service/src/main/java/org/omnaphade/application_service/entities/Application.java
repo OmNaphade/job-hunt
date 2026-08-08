@@ -30,6 +30,8 @@ public class Application {
 
     private LocalDateTime updatedAt;
 
+    private String resumeUrl;
+
     @PrePersist
     public void prePersist() {
         appliedAt = LocalDateTime.now();

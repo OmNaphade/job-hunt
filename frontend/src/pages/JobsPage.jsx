@@ -25,6 +25,7 @@ function asJobList(payload) {
 
 export default function JobsPage() {
   const { role } = useAuth()
+  const isJobSeeker = role === 'JOB_SEEKER'
   const [jobs, setJobs] = useState([])
   const [filters, setFilters] = useState({
     keyword: '',
@@ -43,6 +44,18 @@ export default function JobsPage() {
   const [isLoadingJobs, setIsLoadingJobs] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [savedJobIds, setSavedJobIds] = useState(new Set())
+  const [showSavedOnly, setShowSavedOnly] = useState(false)
+
+  async function loadSavedJobIds() {
+    if (!isJobSeeker) return
+    try {
+      const response = await api.get('/api/jobs/saved/ids')
+      setSavedJobIds(new Set(response.data || []))
+    } catch {
+      // Non-critical: bookmark state just won't be pre-filled.
+    }
+  }
 
   async function loadJobs() {
     setError('')
@@ -50,6 +63,7 @@ export default function JobsPage() {
     try {
       const response = await api.get('/api/jobs')
       setJobs(asJobList(response.data))
+      setShowSavedOnly(false)
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {
@@ -57,8 +71,45 @@ export default function JobsPage() {
     }
   }
 
+  async function loadSavedJobs() {
+    setError('')
+    setIsLoadingJobs(true)
+    try {
+      const response = await api.get('/api/jobs/saved')
+      setJobs(asJobList(response.data))
+      setShowSavedOnly(true)
+    } catch (err) {
+      setError(getErrorMessage(err))
+    } finally {
+      setIsLoadingJobs(false)
+    }
+  }
+
+  async function toggleSaveJob(jobId) {
+    setError('')
+    const alreadySaved = savedJobIds.has(jobId)
+    try {
+      if (alreadySaved) {
+        await api.delete(`/api/jobs/${jobId}/save`)
+        setSavedJobIds((prev) => {
+          const next = new Set(prev)
+          next.delete(jobId)
+          return next
+        })
+        if (showSavedOnly) setJobs((prev) => prev.filter((job) => job.id !== jobId))
+      } else {
+        await api.post(`/api/jobs/${jobId}/save`)
+        setSavedJobIds((prev) => new Set(prev).add(jobId))
+      }
+    } catch (err) {
+      setError(getErrorMessage(err))
+    }
+  }
+
   useEffect(() => {
     loadJobs()
+    loadSavedJobIds()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function searchJobs(event) {
@@ -270,12 +321,39 @@ export default function JobsPage() {
           </form>
         </div>
 
+        {isJobSeeker ? (
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={loadJobs}
+              className={`rounded-xl px-3 py-2 text-sm font-bold ${
+                !showSavedOnly ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'
+              }`}
+            >
+              All Jobs
+            </button>
+            <button
+              type="button"
+              onClick={loadSavedJobs}
+              className={`rounded-xl px-3 py-2 text-sm font-bold ${
+                showSavedOnly ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'
+              }`}
+            >
+              Saved Jobs
+            </button>
+          </div>
+        ) : null}
+
         {isLoadingJobs ? <ListSkeleton rows={4} /> : null}
 
         {!isLoadingJobs && jobs.length === 0 ? (
           <EmptyState
             title="No jobs to display"
-            message="Try broader search filters or create a new job posting."
+            message={
+              showSavedOnly
+                ? 'You haven’t saved any jobs yet.'
+                : 'Try broader search filters or create a new job posting.'
+            }
           />
         ) : null}
 
@@ -283,7 +361,23 @@ export default function JobsPage() {
           <div className="mt-4 grid gap-3">
             {jobs.map((job) => (
               <article key={job.id} className="rounded-2xl border border-slate-200 p-4">
-                <p className="text-lg font-black text-slate-900">{job.title}</p>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-lg font-black text-slate-900">{job.title}</p>
+                  {isJobSeeker ? (
+                    <button
+                      type="button"
+                      onClick={() => toggleSaveJob(job.id)}
+                      aria-label={savedJobIds.has(job.id) ? 'Unsave job' : 'Save job'}
+                      className={`shrink-0 rounded-xl px-3 py-1 text-sm font-bold ${
+                        savedJobIds.has(job.id)
+                          ? 'bg-amber-500 text-amber-950'
+                          : 'bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      {savedJobIds.has(job.id) ? '★ Saved' : '☆ Save'}
+                    </button>
+                  ) : null}
+                </div>
                 <p className="text-sm text-slate-600">{job.location} • {job.jobType}</p>
                 <p className="mt-2 text-sm text-slate-700">{job.description}</p>
                 <p className="mt-2 text-xs uppercase tracking-wider text-slate-500">

@@ -16,6 +16,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import javax.crypto.SecretKey;
 import java.io.IOException;
 import java.util.List;
+import java.util.regex.Pattern;
 
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
@@ -32,6 +33,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             "/actuator/prometheus"
     );
 
+    // Avatars are rendered via <img src>, which cannot send an Authorization header,
+    // so this specific GET is allowed through unauthenticated regardless of the
+    // blanket auth requirement below.
+    private static final Pattern PUBLIC_AVATAR_PATH = Pattern.compile("^/api/users/\\d+/avatar$");
+
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
                                     @NonNull HttpServletResponse response,
@@ -42,6 +48,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         // Allow public endpoints
         if (PUBLIC_PATHS.stream().anyMatch(path::startsWith)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        if ("GET".equalsIgnoreCase(request.getMethod()) && PUBLIC_AVATAR_PATH.matcher(path).matches()) {
             filterChain.doFilter(request, response);
             return;
         }

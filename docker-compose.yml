@@ -166,6 +166,9 @@ services:
       - SPRING_CLOUD_VAULT_ENABLED=false
       - SPRING_CLOUD_VAULT_FAIL_FAST=false
       - ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
+      - UPLOAD_DIR=/app/uploads
+    volumes:
+      - user_uploads_data:/app/uploads
 
   job-service:
     build:
@@ -232,6 +235,9 @@ services:
       - SPRING_CLOUD_VAULT_ENABLED=false
       - SPRING_CLOUD_VAULT_FAIL_FAST=false
       - ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
+      - UPLOAD_DIR=/app/uploads
+    volumes:
+      - application_uploads_data:/app/uploads
 
   notification-service:
     build:
@@ -260,3 +266,5 @@ services:
 
 volumes:
   postgres_data:
+  user_uploads_data:
+  application_uploads_data:

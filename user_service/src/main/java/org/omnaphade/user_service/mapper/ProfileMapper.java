@@ -29,6 +29,7 @@ public class ProfileMapper {
         dto.setSummary(profile.getSummary());
         dto.setExperienceYears(profile.getExperienceYears());
         dto.setCurrentLocation(profile.getCurrentLocation());
+        dto.setAvatarUrl(profile.getAvatarUrl());
 
         return dto;
     }

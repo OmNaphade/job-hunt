@@ -11,17 +11,28 @@ import org.omnaphade.application_service.exception.ResourceNotFoundException;
 import org.omnaphade.application_service.kafka.ApplicationEventProducer;
 import org.omnaphade.application_service.mapper.ApplicationMapper;
 import org.omnaphade.application_service.repository.ApplicationRepository;
+import org.omnaphade.application_service.storage.FileStorageService;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class ApplicationServiceImpl implements IApplicationService {
 
+    private static final Set<String> ALLOWED_RESUME_TYPES = Set.of(
+            "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    );
+
     private final ApplicationRepository applicationRepository;
     private final ApplicationEventProducer eventProducer;
+    private final FileStorageService fileStorageService;
 
     @Override
     public ApplicationResponseDTO applyForJob(ApplicationCreateDTO dto) {
@@ -74,6 +85,39 @@ public class ApplicationServiceImpl implements IApplicationService {
         }
         application.setStatus(ApplicationStatus.WITHDRAWN);
         applicationRepository.save(application);
+    }
+
+    @Override
+    public ApplicationResponseDTO uploadResume(Long id, Long requestingUserId, MultipartFile file) {
+        Application application = findById(id);
+        if (!application.getUserId().equals(requestingUserId)) {
+            throw new AccessDeniedException("You can only upload a resume for your own application");
+        }
+        validateResumeFile(file);
+        String storedPath = fileStorageService.store(file, "resumes");
+        application.setResumeUrl(storedPath);
+        return ApplicationMapper.toDTO(applicationRepository.save(application));
+    }
+
+    @Override
+    public String getResumePath(Long id, Long requestingUserId, boolean privileged) {
+        Application application = findById(id);
+        if (!privileged && !application.getUserId().equals(requestingUserId)) {
+            throw new AccessDeniedException("You are not authorized to view this resume");
+        }
+        if (application.getResumeUrl() == null) {
+            throw new ResourceNotFoundException("No resume uploaded for this application");
+        }
+        return application.getResumeUrl();
+    }
+
+    private void validateResumeFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("Resume file is required");
+        }
+        if (!ALLOWED_RESUME_TYPES.contains(file.getContentType())) {
+            throw new BadRequestException("Only PDF and Word documents are allowed for resumes");
+        }
     }
 
     private void validateStatusTransition(ApplicationStatus current, ApplicationStatus next) {

@@ -16,6 +16,9 @@ export default function ProfilePage() {
   const { user, role } = useAuth()
   const isAdmin = role === 'ADMIN'
   const [profile, setProfile] = useState(profileDefault)
+  const [avatarFile, setAvatarFile] = useState(null)
+  const [avatarVersion, setAvatarVersion] = useState(0)
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
   const [skills, setSkills] = useState([])
   const [skillName, setSkillName] = useState('')
   const [skillIdToRemove, setSkillIdToRemove] = useState('')
@@ -65,6 +68,27 @@ export default function ProfilePage() {
         setSuccess('Profile updated')
         return
       }
+      setError(getErrorMessage(err))
+    }
+  }
+
+  async function uploadAvatar(event) {
+    event.preventDefault()
+    setError('')
+    setSuccess('')
+    if (!user?.id || !avatarFile) return
+
+    try {
+      const formData = new FormData()
+      formData.append('file', avatarFile)
+      await api.post(`/api/users/${user.id}/avatar`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      setSuccess('Avatar uploaded')
+      setAvatarFile(null)
+      setAvatarLoadFailed(false)
+      setAvatarVersion((prev) => prev + 1)
+    } catch (err) {
       setError(getErrorMessage(err))
     }
   }
@@ -212,6 +236,37 @@ export default function ProfilePage() {
       >
         <ErrorMessage text={error} />
         <SuccessMessage text={success} />
+
+        <div className="mt-4 flex items-center gap-4">
+          {user?.id && !avatarLoadFailed ? (
+            <img
+              key={avatarVersion}
+              src={`${api.defaults.baseURL}/api/users/${user.id}/avatar?v=${avatarVersion}`}
+              alt="Profile avatar"
+              onError={() => setAvatarLoadFailed(true)}
+              className="h-16 w-16 rounded-full border border-slate-200 object-cover"
+            />
+          ) : (
+            <div className="flex h-16 w-16 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-xs text-slate-500">
+              No avatar
+            </div>
+          )}
+          <form className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center" onSubmit={uploadAvatar}>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(event) => setAvatarFile(event.target.files?.[0] || null)}
+              className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm"
+            />
+            <button
+              type="submit"
+              disabled={!avatarFile}
+              className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+            >
+              Upload Avatar
+            </button>
+          </form>
+        </div>
 
         <form className="mt-4 grid gap-3" onSubmit={saveProfile}>
           <input

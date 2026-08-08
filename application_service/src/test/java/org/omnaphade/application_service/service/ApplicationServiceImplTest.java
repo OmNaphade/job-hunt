@@ -11,8 +11,12 @@ import org.omnaphade.application_service.exception.BadRequestException;
 import org.omnaphade.application_service.exception.ResourceNotFoundException;
 import org.omnaphade.application_service.kafka.ApplicationEventProducer;
 import org.omnaphade.application_service.repository.ApplicationRepository;
+import org.omnaphade.application_service.storage.FileStorageService;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Optional;
@@ -32,11 +36,14 @@ class ApplicationServiceImplTest {
     @Mock
     private ApplicationEventProducer eventProducer;
 
+    @Mock
+    private FileStorageService fileStorageService;
+
     private ApplicationServiceImpl applicationService;
 
     @BeforeEach
     void setUp() {
-        applicationService = new ApplicationServiceImpl(applicationRepository, eventProducer);
+        applicationService = new ApplicationServiceImpl(applicationRepository, eventProducer, fileStorageService);
     }
 
     private Application application(Long id, Long jobId, Long userId, ApplicationStatus status) {
@@ -167,5 +174,95 @@ class ApplicationServiceImplTest {
         assertThat(result).hasSize(2);
         assertThat(result).extracting(ApplicationResponseDTO::getStatus)
                 .containsExactly("APPLIED", "SHORTLISTED");
+    }
+
+    @Test
+    void uploadResume_ownerWithValidPdf_storesFileAndUpdatesResumeUrl() {
+        Application existing = application(1L, 5L, 4L, ApplicationStatus.APPLIED);
+        when(applicationRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(applicationRepository.save(any(Application.class))).thenAnswer(inv -> inv.getArgument(0));
+        MultipartFile file = new MockMultipartFile("file", "resume.pdf", "application/pdf", "content".getBytes());
+        when(fileStorageService.store(file, "resumes")).thenReturn("resumes/generated-name.pdf");
+
+        ApplicationResponseDTO result = applicationService.uploadResume(1L, 4L, file);
+
+        assertThat(result.getResumeUrl()).isEqualTo("resumes/generated-name.pdf");
+        assertThat(existing.getResumeUrl()).isEqualTo("resumes/generated-name.pdf");
+    }
+
+    @Test
+    void uploadResume_notOwner_throwsAccessDeniedException() {
+        Application existing = application(1L, 5L, 4L, ApplicationStatus.APPLIED);
+        when(applicationRepository.findById(1L)).thenReturn(Optional.of(existing));
+        MultipartFile file = new MockMultipartFile("file", "resume.pdf", "application/pdf", "content".getBytes());
+
+        assertThatThrownBy(() -> applicationService.uploadResume(1L, 999L, file))
+                .isInstanceOf(AccessDeniedException.class);
+
+        verify(fileStorageService, never()).store(any(), any());
+        verify(applicationRepository, never()).save(any());
+    }
+
+    @Test
+    void uploadResume_disallowedFileType_throwsBadRequestException() {
+        Application existing = application(1L, 5L, 4L, ApplicationStatus.APPLIED);
+        when(applicationRepository.findById(1L)).thenReturn(Optional.of(existing));
+        MultipartFile file = new MockMultipartFile("file", "resume.exe", "application/x-msdownload", "content".getBytes());
+
+        assertThatThrownBy(() -> applicationService.uploadResume(1L, 4L, file))
+                .isInstanceOf(BadRequestException.class);
+
+        verify(fileStorageService, never()).store(any(), any());
+    }
+
+    @Test
+    void uploadResume_emptyFile_throwsBadRequestException() {
+        Application existing = application(1L, 5L, 4L, ApplicationStatus.APPLIED);
+        when(applicationRepository.findById(1L)).thenReturn(Optional.of(existing));
+        MultipartFile file = new MockMultipartFile("file", "resume.pdf", "application/pdf", new byte[0]);
+
+        assertThatThrownBy(() -> applicationService.uploadResume(1L, 4L, file))
+                .isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void getResumePath_owner_returnsPath() {
+        Application existing = application(1L, 5L, 4L, ApplicationStatus.APPLIED);
+        existing.setResumeUrl("resumes/generated-name.pdf");
+        when(applicationRepository.findById(1L)).thenReturn(Optional.of(existing));
+
+        String path = applicationService.getResumePath(1L, 4L, false);
+
+        assertThat(path).isEqualTo("resumes/generated-name.pdf");
+    }
+
+    @Test
+    void getResumePath_privilegedNonOwner_returnsPath() {
+        Application existing = application(1L, 5L, 4L, ApplicationStatus.APPLIED);
+        existing.setResumeUrl("resumes/generated-name.pdf");
+        when(applicationRepository.findById(1L)).thenReturn(Optional.of(existing));
+
+        String path = applicationService.getResumePath(1L, 999L, true);
+
+        assertThat(path).isEqualTo("resumes/generated-name.pdf");
+    }
+
+    @Test
+    void getResumePath_nonOwnerNotPrivileged_throwsAccessDeniedException() {
+        Application existing = application(1L, 5L, 4L, ApplicationStatus.APPLIED);
+        existing.setResumeUrl("resumes/generated-name.pdf");
+        when(applicationRepository.findById(1L)).thenReturn(Optional.of(existing));
+
+        assertThatThrownBy(() -> applicationService.getResumePath(1L, 999L, false))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void getResumePath_noResumeUploaded_throwsResourceNotFoundException() {
+        Application existing = application(1L, 5L, 4L, ApplicationStatus.APPLIED);
+        when(applicationRepository.findById(1L)).thenReturn(Optional.of(existing));
+
+        assertThatThrownBy(() -> applicationService.getResumePath(1L, 4L, false))
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 }

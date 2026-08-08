@@ -277,8 +277,17 @@ POST /api/auth/logout  → refreshToken deleted from DB (invalidated)
 ### Authorization Layers
 ```
 Layer 1: API Gateway JwtAuthFilter
-  → Rejects requests with invalid/missing JWT (except /register, /login, /refresh)
+  → Rejects requests with invalid/missing JWT (except /api/auth/register, /api/auth/login,
+    /api/auth/refresh, /actuator/health, /actuator/info, /actuator/prometheus,
+    and GET /api/users/{id}/avatar — the last one is a narrow exception so the frontend can
+    load avatars via a plain <img src>, which cannot send an Authorization header)
   → All 6 business services are behind this filter in production
+  → IMPORTANT: this gateway-level allowlist is independent of each service's own SecurityConfig.
+    Endpoints documented below as "Public" (e.g. GET /api/jobs, GET /api/companies) are only
+    public at the per-service level (Layer 2) — a request through the gateway without a valid
+    JWT is still rejected here at Layer 1 with a generic 401, before it ever reaches that service.
+    Hitting a service directly on its own port (bypassing the gateway) does honor its own
+    permitAll rules.
 
 Layer 2: Per-service JwtAuthFilter (Spring Security)
   → Validates JWT signature, sets Authentication in SecurityContext
@@ -323,6 +332,11 @@ Limits are configurable via `rate-limit.login.limit`, `rate-limit.login.refresh-
 | POST /api/applications | ✅ | ❌ | ❌ |
 | PATCH /api/applications/{id}/status | ❌ | ✅ | ✅ |
 | PATCH /api/applications/{id}/withdraw | ✅ | ❌ | ❌ |
+| POST/DELETE /api/jobs/{id}/save | ✅ | ❌ | ❌ |
+| GET /api/jobs/saved | ✅ | ❌ | ❌ |
+| POST /api/applications/{id}/resume (own) | ✅ | ❌ | ❌ |
+| GET /api/applications/{id}/resume (own or reviewer) | ✅ | ✅ | ✅ |
+| POST /api/users/{id}/avatar | ✅ | ✅ | ✅ |
 | GET /api/notifications | ✅ | ✅ | ✅ |
 | PATCH /api/notifications/read-all | ✅ | ✅ | ✅ |
 
@@ -536,6 +550,19 @@ Response: array of profile objects.
 
 ---
 
+### POST /api/users/{userId}/avatar 🔒 — Upload Avatar
+Multipart form upload (`file` field). Accepts `image/png`, `image/jpeg`, `image/webp`, max 5MB. Stored on local
+disk (`app.storage.upload-dir`, volume-mounted in Docker). Response: updated profile object with `avatarUrl` set.
+Errors: `400` missing/invalid file or oversized · `404` profile not found
+
+---
+
+### GET /api/users/{userId}/avatar — Public
+Streams the stored avatar image (`Content-Disposition: inline`) so it can be used directly as an `<img src>`.
+Errors: `404` no avatar uploaded / profile not found
+
+---
+
 ## 3. Job Service (:8083)
 
 ### POST /api/jobs 🔒 RECRUITER | ADMIN
@@ -627,6 +654,32 @@ Response: updated job.
 
 ### DELETE /api/jobs/{id} 🔒 RECRUITER | ADMIN
 Deletes job and all associated `job_skills`. Response: `204 No Content`
+
+---
+
+### POST /api/jobs/{id}/save 🔒 JOB_SEEKER — Save/Bookmark a Job
+Response: `201 Created`, empty body. Errors: `404` job not found · `409` already saved
+
+---
+
+### DELETE /api/jobs/{id}/save 🔒 JOB_SEEKER — Unsave a Job
+Response: `204 No Content`. Errors: `404` not currently saved
+
+---
+
+### GET /api/jobs/saved 🔒 JOB_SEEKER — List Saved Jobs
+| Param | Type | Notes |
+|---|---|---|
+| `page` | int | `0` (default) |
+| `size` | int | `20` (default) |
+
+Response: `Page<Job>`, sorted by most-recently-saved first.
+
+---
+
+### GET /api/jobs/saved/ids 🔒 JOB_SEEKER — List Saved Job IDs
+Lightweight endpoint for hydrating bookmark state client-side without fetching full job payloads.
+Response: `[5, 12, 34]`
 
 ---
 
@@ -762,6 +815,20 @@ Response: updated application. Errors: `400` invalid transition
 ### PATCH /api/applications/{id}/withdraw 🔒 JOB_SEEKER
 Can only withdraw own applications. Cannot withdraw after `HIRED`.  
 Response: `204 No Content`. Errors: `400` not owner or already hired.
+
+---
+
+### POST /api/applications/{id}/resume 🔒 JOB_SEEKER (owner only) — Upload Resume
+Multipart form upload (`file` field). Accepts `application/pdf`, `application/msword`,
+`application/vnd.openxmlformats-officedocument.wordprocessingml.document`, max 5MB. Stored on local disk
+(`app.storage.upload-dir`, volume-mounted in Docker). Response: updated application object with `resumeUrl` set.
+Errors: `400` missing/invalid file type or oversized · `403` not the application owner · `404` application not found
+
+---
+
+### GET /api/applications/{id}/resume 🔒 Owner or RECRUITER | ADMIN — Download Resume
+Streams the stored resume file (`Content-Disposition: attachment`).
+Errors: `403` not the owner and not a recruiter/admin · `404` no resume uploaded / application not found
 
 ---
 

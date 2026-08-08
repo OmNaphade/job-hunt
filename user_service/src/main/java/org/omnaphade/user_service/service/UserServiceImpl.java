@@ -9,6 +9,7 @@ import org.omnaphade.user_service.dtos.UserSkillDTO;
 import org.omnaphade.user_service.entities.Profile;
 import org.omnaphade.user_service.entities.Skill;
 import org.omnaphade.user_service.entities.UserSkill;
+import org.omnaphade.user_service.exception.BadRequestException;
 import org.omnaphade.user_service.exception.DuplicateResourceException;
 import org.omnaphade.user_service.exception.ResourceNotFoundException;
 import org.omnaphade.user_service.mapper.ProfileMapper;
@@ -16,21 +17,28 @@ import org.omnaphade.user_service.mapper.SkillMapper;
 import org.omnaphade.user_service.repository.SkillRepository;
 import org.omnaphade.user_service.repository.UserRepository;
 import org.omnaphade.user_service.repository.UserSkillRepository;
+import org.omnaphade.user_service.storage.FileStorageService;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @Transactional
 @RequiredArgsConstructor
 public class UserServiceImpl implements IUserService {
 
+    private static final Set<String> ALLOWED_AVATAR_TYPES = Set.of("image/png", "image/jpeg", "image/webp");
+
     private final UserRepository userRepository;
 
     private final UserSkillRepository userSkillRepository;
 
     private final SkillRepository skillRepository;
+
+    private final FileStorageService fileStorageService;
 
     @Override
     public List<ProfileResponseDTO> getAllUsers() {
@@ -172,5 +180,34 @@ public class UserServiceImpl implements IUserService {
         }
 
         userSkillRepository.delete(userSkill);
+    }
+
+    @Override
+    public ProfileResponseDTO uploadAvatar(Long userId, MultipartFile file) {
+        Profile profile = userRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Profile not found for userId: " + userId));
+
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("Avatar file is required");
+        }
+        if (!ALLOWED_AVATAR_TYPES.contains(file.getContentType())) {
+            throw new BadRequestException("Only PNG, JPEG, or WebP images are allowed for avatars");
+        }
+
+        String storedPath = fileStorageService.store(file, "avatars");
+        profile.setAvatarUrl(storedPath);
+
+        return ProfileMapper.toResponseDTO(userRepository.save(profile));
+    }
+
+    @Override
+    public String getAvatarPath(Long userId) {
+        Profile profile = userRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Profile not found for userId: " + userId));
+
+        if (profile.getAvatarUrl() == null) {
+            throw new ResourceNotFoundException("No avatar uploaded for this user");
+        }
+        return profile.getAvatarUrl();
     }
 }

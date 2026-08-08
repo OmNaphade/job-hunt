@@ -42,6 +42,26 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<ErrorResponseDTO> handleBadRequest(BadRequestException ex) {
+
+        log.error("Bad request: {}", ex.getMessage());
+
+        return new ResponseEntity<>(
+                new ErrorResponseDTO(ex.getMessage(), 400, LocalDateTime.now()),
+                HttpStatus.BAD_REQUEST
+        );
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponseDTO> handleMaxUploadSize(org.springframework.web.multipart.MaxUploadSizeExceededException ex) {
+
+        return new ResponseEntity<>(
+                new ErrorResponseDTO("Uploaded file exceeds the maximum allowed size", 400, LocalDateTime.now()),
+                HttpStatus.BAD_REQUEST
+        );
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponseDTO> handleGeneric(Exception ex) {
 

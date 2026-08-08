@@ -7,10 +7,13 @@ import org.omnaphade.job_service.dtos.JobResponseDTO;
 import org.omnaphade.job_service.entities.Job;
 import org.omnaphade.job_service.entities.JobSkill;
 import org.omnaphade.job_service.entities.JobStatus;
+import org.omnaphade.job_service.entities.SavedJob;
+import org.omnaphade.job_service.exception.DuplicateResourceException;
 import org.omnaphade.job_service.exception.ResourceNotFoundException;
 import org.omnaphade.job_service.mapper.JobMapper;
 import org.omnaphade.job_service.repository.JobRepository;
 import org.omnaphade.job_service.repository.JobSkillRepository;
+import org.omnaphade.job_service.repository.SavedJobRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -31,6 +34,7 @@ public class JobServiceImpl implements IJobService {
 
     private final JobRepository jobRepository;
     private final JobSkillRepository jobSkillRepository;
+    private final SavedJobRepository savedJobRepository;
 
     @Override
     public JobResponseDTO createJob(JobCreateDTO dto, Long createdBy) {
@@ -99,6 +103,34 @@ public class JobServiceImpl implements IJobService {
         Pageable pageable = buildPageable(page, size, sortBy, sortDir);
         return jobRepository.searchJobs(JobStatus.OPEN, keyword, location, jobType, minSalary, maxExperience, pageable)
                 .map(job -> withSkills(JobMapper.toDTO(job)));
+    }
+
+    @Override
+    public void saveJob(Long userId, Long jobId) {
+        findById(jobId);
+        if (savedJobRepository.existsByUserIdAndJobId(userId, jobId)) {
+            throw new DuplicateResourceException("Job already saved: " + jobId);
+        }
+        savedJobRepository.save(SavedJob.builder().userId(userId).jobId(jobId).build());
+    }
+
+    @Override
+    public void unsaveJob(Long userId, Long jobId) {
+        SavedJob savedJob = savedJobRepository.findByUserIdAndJobId(userId, jobId)
+                .orElseThrow(() -> new ResourceNotFoundException("Saved job not found: " + jobId));
+        savedJobRepository.delete(savedJob);
+    }
+
+    @Override
+    public Page<JobResponseDTO> getSavedJobs(Long userId, int page, int size) {
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.max(size, 1), Sort.by(Sort.Direction.DESC, "savedAt"));
+        return savedJobRepository.findByUserId(userId, pageable)
+                .map(savedJob -> withSkills(JobMapper.toDTO(findById(savedJob.getJobId()))));
+    }
+
+    @Override
+    public List<Long> getSavedJobIds(Long userId) {
+        return savedJobRepository.findByUserId(userId).stream().map(SavedJob::getJobId).toList();
     }
 
     private Pageable buildPageable(int page, int size, String sortBy, String sortDir) {

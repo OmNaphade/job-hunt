@@ -14,6 +14,9 @@ export default function ApplicationsPage() {
   const [applicationIdLookup, setApplicationIdLookup] = useState('')
   const [applicationsByJobId, setApplicationsByJobId] = useState('')
   const [withdrawId, setWithdrawId] = useState('')
+  const [resumeApplicationId, setResumeApplicationId] = useState('')
+  const [resumeFile, setResumeFile] = useState(null)
+  const [resumeDownloadId, setResumeDownloadId] = useState('')
   const [isLoadingApplications, setIsLoadingApplications] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -94,6 +97,45 @@ export default function ApplicationsPage() {
       setError(getErrorMessage(err))
     } finally {
       setIsLoadingApplications(false)
+    }
+  }
+
+  async function uploadResume(event) {
+    event.preventDefault()
+    setError('')
+    setSuccess('')
+    if (!resumeApplicationId || !resumeFile) return
+    try {
+      const formData = new FormData()
+      formData.append('file', resumeFile)
+      await api.post(`/api/applications/${resumeApplicationId}/resume`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      setSuccess('Resume uploaded')
+      setResumeFile(null)
+    } catch (err) {
+      setError(getErrorMessage(err))
+    }
+  }
+
+  async function downloadResume(event) {
+    event.preventDefault()
+    setError('')
+    setSuccess('')
+    if (!resumeDownloadId) return
+    try {
+      const response = await api.get(`/api/applications/${resumeDownloadId}/resume`, {
+        responseType: 'blob',
+      })
+      const url = window.URL.createObjectURL(response.data)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `resume-application-${resumeDownloadId}`
+      link.click()
+      window.URL.revokeObjectURL(url)
+      setSuccess('Resume downloaded')
+    } catch (err) {
+      setError(getErrorMessage(err))
     }
   }
 
@@ -179,6 +221,18 @@ export default function ApplicationsPage() {
               </button>
             </form>
           ) : null}
+
+          <form className="flex gap-2" onSubmit={downloadResume}>
+            <input
+              className="flex-1 rounded-xl border border-slate-300 px-3 py-2"
+              placeholder="Download resume by application ID"
+              value={resumeDownloadId}
+              onChange={(event) => setResumeDownloadId(event.target.value)}
+            />
+            <button type="submit" className="rounded-xl bg-cyan-600 px-3 py-2 text-sm font-bold text-white">
+              Download
+            </button>
+          </form>
         </div>
       </SectionCard>
 
@@ -209,6 +263,28 @@ export default function ApplicationsPage() {
             />
             <button type="submit" className="rounded-xl bg-rose-500 px-4 py-2 font-bold text-white">
               Withdraw
+            </button>
+          </form>
+
+          <form className="mt-3 grid gap-2 sm:grid-cols-3" onSubmit={uploadResume}>
+            <input
+              className="rounded-xl border border-slate-300 px-3 py-2"
+              placeholder="Application ID"
+              value={resumeApplicationId}
+              onChange={(event) => setResumeApplicationId(event.target.value)}
+            />
+            <input
+              type="file"
+              accept=".pdf,.doc,.docx"
+              onChange={(event) => setResumeFile(event.target.files?.[0] || null)}
+              className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
+            />
+            <button
+              type="submit"
+              disabled={!resumeApplicationId || !resumeFile}
+              className="rounded-xl bg-slate-900 px-4 py-2 font-bold text-white disabled:opacity-50"
+            >
+              Upload Resume
             </button>
           </form>
         </SectionCard>
