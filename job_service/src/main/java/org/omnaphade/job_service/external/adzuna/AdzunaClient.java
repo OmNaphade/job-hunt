@@ -22,18 +22,24 @@ public class AdzunaClient implements ExternalJobProvider {
     private final String appKey;
     private final String country;
     private final int resultsPerPage;
+    private final String category;
+    private final String keyword;
 
     public AdzunaClient(WebClient.Builder webClientBuilder,
                          @Value("${adzuna.base-url:https://api.adzuna.com/v1/api}") String baseUrl,
                          @Value("${adzuna.app-id:}") String appId,
                          @Value("${adzuna.app-key:}") String appKey,
                          @Value("${adzuna.country:us}") String country,
-                         @Value("${adzuna.results-per-page:20}") int resultsPerPage) {
+                         @Value("${adzuna.results-per-page:20}") int resultsPerPage,
+                         @Value("${adzuna.category:it-jobs}") String category,
+                         @Value("${adzuna.keyword:}") String keyword) {
         this.webClient = webClientBuilder.baseUrl(baseUrl).build();
         this.appId = appId;
         this.appKey = appKey;
         this.country = country;
         this.resultsPerPage = resultsPerPage;
+        this.category = category;
+        this.keyword = keyword;
     }
 
     @Override
@@ -50,13 +56,20 @@ public class AdzunaClient implements ExternalJobProvider {
         }
 
         AdzunaSearchResponse response = webClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/jobs/{country}/search/{page}")
-                        .queryParam("app_id", appId)
-                        .queryParam("app_key", appKey)
-                        .queryParam("results_per_page", resultsPerPage)
-                        .queryParam("content-type", "application/json")
-                        .build(country, page))
+                .uri(uriBuilder -> {
+                    uriBuilder.path("/jobs/{country}/search/{page}")
+                            .queryParam("app_id", appId)
+                            .queryParam("app_key", appKey)
+                            .queryParam("results_per_page", resultsPerPage)
+                            .queryParam("content-type", "application/json");
+                    if (!category.isBlank()) {
+                        uriBuilder.queryParam("category", category);
+                    }
+                    if (!keyword.isBlank()) {
+                        uriBuilder.queryParam("what", keyword);
+                    }
+                    return uriBuilder.build(country, page);
+                })
                 .retrieve()
                 .bodyToMono(AdzunaSearchResponse.class)
                 .block();
