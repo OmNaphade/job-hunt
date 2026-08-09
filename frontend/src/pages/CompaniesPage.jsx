@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import SectionCard from '../components/SectionCard'
 import { ErrorMessage, SuccessMessage } from '../components/Message'
 import { EmptyState, ListSkeleton } from '../components/StateBlocks'
+import { useConfirm } from '../components/ConfirmDialogProvider'
 import { useAuth } from '../context/AuthContext'
 import { api, getErrorMessage } from '../lib/api'
 
@@ -14,6 +15,7 @@ const defaults = {
 
 export default function CompaniesPage() {
   const { role } = useAuth()
+  const confirm = useConfirm()
   const [companies, setCompanies] = useState([])
   const [form, setForm] = useState(defaults)
   const [companyIdLookup, setCompanyIdLookup] = useState('')
@@ -95,6 +97,12 @@ export default function CompaniesPage() {
     event.preventDefault()
     setError('')
     setSuccess('')
+    const confirmed = await confirm({
+      title: `Delete company #${deleteId}?`,
+      message: 'This permanently removes the company record. This cannot be undone.',
+      confirmLabel: 'Delete company',
+    })
+    if (!confirmed) return
     try {
       await api.delete(`/api/companies/${deleteId}`)
       setSuccess('Company deleted')
@@ -142,6 +150,12 @@ export default function CompaniesPage() {
     event.preventDefault()
     setError('')
     setSuccess('')
+    const confirmed = await confirm({
+      title: 'Remove this recruiter?',
+      message: `This revokes recruiter #${removeRecruiterId}'s access to company #${removeRecruiterCompanyId}.`,
+      confirmLabel: 'Remove recruiter',
+    })
+    if (!confirmed) return
     try {
       await api.delete(
         `/api/companies/${removeRecruiterCompanyId}/recruiters/${removeRecruiterId}`,
@@ -172,7 +186,7 @@ export default function CompaniesPage() {
         {!isLoadingCompanies && companies.length > 0 ? (
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             {companies.map((company) => (
-              <article key={company.id} className="rounded-2xl border border-slate-200 p-4">
+              <article key={company.id} className="item-card">
                 <p className="text-lg font-black text-slate-900">{company.name}</p>
                 <p className="mt-2 text-sm text-slate-700">{company.description}</p>
                 <a className="mt-2 inline-block text-sm font-semibold text-cyan-700" href={company.website}>
@@ -185,12 +199,12 @@ export default function CompaniesPage() {
 
         <form className="mt-3 flex gap-2" onSubmit={getCompanyById}>
           <input
-            className="flex-1 rounded-xl border border-slate-300 px-3 py-2"
+            className="input flex-1"
             placeholder="Load company by ID"
             value={companyIdLookup}
             onChange={(event) => setCompanyIdLookup(event.target.value)}
           />
-          <button type="submit" className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-bold text-white">
+          <button type="submit" className="btn btn-dark btn-sm">
             Load
           </button>
         </form>
@@ -200,26 +214,26 @@ export default function CompaniesPage() {
         <SectionCard title="Create Company" subtitle="Bound to POST /api/companies.">
           <form className="grid gap-3 md:grid-cols-2" onSubmit={createCompany}>
             <input
-              className="rounded-xl border border-slate-300 px-3 py-2"
+              className="input"
               placeholder="Company name"
               required
               value={form.name}
               onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
             />
             <input
-              className="rounded-xl border border-slate-300 px-3 py-2"
+              className="input"
               placeholder="Website"
               value={form.website}
               onChange={(event) => setForm((prev) => ({ ...prev, website: event.target.value }))}
             />
             <input
-              className="rounded-xl border border-slate-300 px-3 py-2"
+              className="input"
               placeholder="Location"
               value={form.location}
               onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
             />
             <textarea
-              className="rounded-xl border border-slate-300 px-3 py-2 md:col-span-2"
+              className="input md:col-span-2"
               placeholder="Description"
               rows={4}
               value={form.description}
@@ -227,7 +241,7 @@ export default function CompaniesPage() {
             />
             <button
               type="submit"
-              className="md:col-span-2 rounded-xl bg-slate-900 px-4 py-2 font-bold text-white"
+              className="btn btn-dark md:col-span-2"
             >
               Save Company
             </button>
@@ -235,12 +249,12 @@ export default function CompaniesPage() {
 
           <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={updateCompany}>
             <input
-              className="rounded-xl border border-slate-300 px-3 py-2"
+              className="input"
               placeholder="Update company ID"
               value={updateId}
               onChange={(event) => setUpdateId(event.target.value)}
             />
-            <button type="submit" className="rounded-xl bg-amber-500 px-4 py-2 font-bold text-amber-950">
+            <button type="submit" className="btn btn-warning">
               Update Company
             </button>
           </form>
@@ -248,12 +262,12 @@ export default function CompaniesPage() {
           {role === 'ADMIN' ? (
             <form className="mt-3 flex gap-2" onSubmit={deleteCompany}>
               <input
-                className="flex-1 rounded-xl border border-slate-300 px-3 py-2"
+                className="input flex-1"
                 placeholder="Delete company ID"
                 value={deleteId}
                 onChange={(event) => setDeleteId(event.target.value)}
               />
-              <button type="submit" className="rounded-xl bg-rose-500 px-4 py-2 font-bold text-white">
+              <button type="submit" className="btn btn-danger">
                 Delete
               </button>
             </form>
@@ -267,24 +281,24 @@ export default function CompaniesPage() {
             <form className="grid gap-3" onSubmit={addRecruiter}>
               <p className="text-sm font-semibold text-slate-700">POST /api/companies/{'{id}'}/recruiters</p>
               <input
-                className="rounded-xl border border-slate-300 px-3 py-2"
+                className="input"
                 placeholder="Company ID"
                 value={recruiterCompanyId}
                 onChange={(event) => setRecruiterCompanyId(event.target.value)}
               />
               <input
-                className="rounded-xl border border-slate-300 px-3 py-2"
+                className="input"
                 placeholder="User ID"
                 value={recruiterUserId}
                 onChange={(event) => setRecruiterUserId(event.target.value)}
               />
               <input
-                className="rounded-xl border border-slate-300 px-3 py-2"
+                className="input"
                 placeholder="Designation"
                 value={recruiterDesignation}
                 onChange={(event) => setRecruiterDesignation(event.target.value)}
               />
-              <button type="submit" className="rounded-xl bg-slate-900 px-4 py-2 font-bold text-white">
+              <button type="submit" className="btn btn-dark">
                 Add Recruiter
               </button>
             </form>
@@ -292,15 +306,15 @@ export default function CompaniesPage() {
             <form className="grid gap-3" onSubmit={loadRecruiters}>
               <p className="text-sm font-semibold text-slate-700">GET /api/companies/{'{id}'}/recruiters</p>
               <input
-                className="rounded-xl border border-slate-300 px-3 py-2"
+                className="input"
                 placeholder="Company ID"
                 value={recruiterCompanyId}
                 onChange={(event) => setRecruiterCompanyId(event.target.value)}
               />
-              <button type="submit" className="rounded-xl bg-cyan-600 px-4 py-2 font-bold text-white">
+              <button type="submit" className="btn btn-accent">
                 Load Recruiters
               </button>
-              <div className="rounded-xl border border-slate-200 p-3 text-xs text-slate-600">
+              <div className="item-card-compact text-xs text-slate-600">
                 {isLoadingRecruiters ? 'Loading recruiters...' : null}
                 {!isLoadingRecruiters
                   ? recruiters.map((x) => `${x.id}: user ${x.userId}`).join(' | ') || 'No recruiters loaded'
@@ -311,18 +325,18 @@ export default function CompaniesPage() {
             <form className="grid gap-3" onSubmit={removeRecruiter}>
               <p className="text-sm font-semibold text-slate-700">DELETE recruiter mapping</p>
               <input
-                className="rounded-xl border border-slate-300 px-3 py-2"
+                className="input"
                 placeholder="Company ID"
                 value={removeRecruiterCompanyId}
                 onChange={(event) => setRemoveRecruiterCompanyId(event.target.value)}
               />
               <input
-                className="rounded-xl border border-slate-300 px-3 py-2"
+                className="input"
                 placeholder="Recruiter ID"
                 value={removeRecruiterId}
                 onChange={(event) => setRemoveRecruiterId(event.target.value)}
               />
-              <button type="submit" className="rounded-xl bg-rose-500 px-4 py-2 font-bold text-white">
+              <button type="submit" className="btn btn-danger">
                 Remove Recruiter
               </button>
             </form>

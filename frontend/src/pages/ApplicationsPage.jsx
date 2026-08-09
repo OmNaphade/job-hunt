@@ -2,11 +2,13 @@ import { useState } from 'react'
 import SectionCard from '../components/SectionCard'
 import { ErrorMessage, SuccessMessage } from '../components/Message'
 import { EmptyState, ListSkeleton } from '../components/StateBlocks'
+import { useConfirm } from '../components/ConfirmDialogProvider'
 import { useAuth } from '../context/AuthContext'
 import { api, getErrorMessage } from '../lib/api'
 
 export default function ApplicationsPage() {
   const { role } = useAuth()
+  const confirm = useConfirm()
   const [myApplications, setMyApplications] = useState([])
   const [jobId, setJobId] = useState('')
   const [updateId, setUpdateId] = useState('')
@@ -143,6 +145,12 @@ export default function ApplicationsPage() {
     event.preventDefault()
     setError('')
     setSuccess('')
+    const confirmed = await confirm({
+      title: `Withdraw application #${withdrawId}?`,
+      message: 'The employer will no longer consider you for this role. You can reapply later if the job is still open.',
+      confirmLabel: 'Withdraw application',
+    })
+    if (!confirmed) return
     try {
       await api.patch(`/api/applications/${withdrawId}/withdraw`)
       setSuccess('Application withdrawn')
@@ -163,7 +171,7 @@ export default function ApplicationsPage() {
           <button
             type="button"
             onClick={loadMine}
-            className="rounded-xl bg-cyan-600 px-3 py-2 text-sm font-bold text-white hover:bg-cyan-700"
+            className="btn btn-accent btn-sm"
           >
             Load My Applications
           </button>
@@ -185,7 +193,7 @@ export default function ApplicationsPage() {
         {!isLoadingApplications && myApplications.length > 0 ? (
           <div className="mt-4 grid gap-3">
             {myApplications.map((app) => (
-              <article key={app.id} className="rounded-2xl border border-slate-200 p-3">
+              <article key={app.id} className="item-card-compact">
                 <p className="font-bold text-slate-900">
                   Application #{app.id} • Job #{app.jobId}
                 </p>
@@ -198,12 +206,12 @@ export default function ApplicationsPage() {
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           <form className="flex gap-2" onSubmit={getApplicationById}>
             <input
-              className="flex-1 rounded-xl border border-slate-300 px-3 py-2"
+              className="input flex-1"
               placeholder="Get application by ID"
               value={applicationIdLookup}
               onChange={(event) => setApplicationIdLookup(event.target.value)}
             />
-            <button type="submit" className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-bold text-white">
+            <button type="submit" className="btn btn-dark btn-sm">
               Load
             </button>
           </form>
@@ -211,12 +219,12 @@ export default function ApplicationsPage() {
           {canUpdate ? (
             <form className="flex gap-2" onSubmit={getApplicationsByJob}>
               <input
-                className="flex-1 rounded-xl border border-slate-300 px-3 py-2"
+                className="input flex-1"
                 placeholder="Get applications by Job ID"
                 value={applicationsByJobId}
                 onChange={(event) => setApplicationsByJobId(event.target.value)}
               />
-              <button type="submit" className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-bold text-white">
+              <button type="submit" className="btn btn-dark btn-sm">
                 Load
               </button>
             </form>
@@ -224,12 +232,12 @@ export default function ApplicationsPage() {
 
           <form className="flex gap-2" onSubmit={downloadResume}>
             <input
-              className="flex-1 rounded-xl border border-slate-300 px-3 py-2"
+              className="input flex-1"
               placeholder="Download resume by application ID"
               value={resumeDownloadId}
               onChange={(event) => setResumeDownloadId(event.target.value)}
             />
-            <button type="submit" className="rounded-xl bg-cyan-600 px-3 py-2 text-sm font-bold text-white">
+            <button type="submit" className="btn btn-accent btn-sm">
               Download
             </button>
           </form>
@@ -240,7 +248,7 @@ export default function ApplicationsPage() {
         <SectionCard title="Apply for Job" subtitle="POST /api/applications">
           <form className="grid gap-3" onSubmit={applyToJob}>
             <input
-              className="rounded-xl border border-slate-300 px-3 py-2"
+              className="input"
               placeholder="Job ID"
               required
               value={jobId}
@@ -248,7 +256,7 @@ export default function ApplicationsPage() {
             />
             <button
               type="submit"
-              className="rounded-xl bg-slate-900 px-4 py-2 font-bold text-white"
+              className="btn btn-dark"
             >
               Submit Application
             </button>
@@ -256,19 +264,19 @@ export default function ApplicationsPage() {
 
           <form className="mt-3 flex gap-2" onSubmit={withdrawApplication}>
             <input
-              className="flex-1 rounded-xl border border-slate-300 px-3 py-2"
+              className="input flex-1"
               placeholder="Withdraw application ID"
               value={withdrawId}
               onChange={(event) => setWithdrawId(event.target.value)}
             />
-            <button type="submit" className="rounded-xl bg-rose-500 px-4 py-2 font-bold text-white">
+            <button type="submit" className="btn btn-danger">
               Withdraw
             </button>
           </form>
 
           <form className="mt-3 grid gap-2 sm:grid-cols-3" onSubmit={uploadResume}>
             <input
-              className="rounded-xl border border-slate-300 px-3 py-2"
+              className="input"
               placeholder="Application ID"
               value={resumeApplicationId}
               onChange={(event) => setResumeApplicationId(event.target.value)}
@@ -277,12 +285,12 @@ export default function ApplicationsPage() {
               type="file"
               accept=".pdf,.doc,.docx"
               onChange={(event) => setResumeFile(event.target.files?.[0] || null)}
-              className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
+              className="input text-sm"
             />
             <button
               type="submit"
               disabled={!resumeApplicationId || !resumeFile}
-              className="rounded-xl bg-slate-900 px-4 py-2 font-bold text-white disabled:opacity-50"
+              className="btn btn-dark"
             >
               Upload Resume
             </button>
@@ -294,14 +302,14 @@ export default function ApplicationsPage() {
         <SectionCard title="Update Status" subtitle="PATCH /api/applications/{id}/status">
           <form className="grid gap-3 md:grid-cols-3" onSubmit={updateStatus}>
             <input
-              className="rounded-xl border border-slate-300 px-3 py-2"
+              className="input"
               placeholder="Application ID"
               required
               value={updateId}
               onChange={(event) => setUpdateId(event.target.value)}
             />
             <select
-              className="rounded-xl border border-slate-300 px-3 py-2"
+              className="input"
               value={status}
               onChange={(event) => setStatus(event.target.value)}
             >
@@ -311,7 +319,7 @@ export default function ApplicationsPage() {
             </select>
             <button
               type="submit"
-              className="rounded-xl bg-amber-500 px-4 py-2 font-bold text-amber-950"
+              className="btn btn-warning"
             >
               Update
             </button>

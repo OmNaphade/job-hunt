@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import SectionCard from '../components/SectionCard'
 import { ErrorMessage, SuccessMessage } from '../components/Message'
 import { EmptyState, ListSkeleton } from '../components/StateBlocks'
+import { useConfirm } from '../components/ConfirmDialogProvider'
 import { useAuth } from '../context/AuthContext'
 import { api, getErrorMessage } from '../lib/api'
 
@@ -17,16 +18,32 @@ const jobDefault = {
   skills: '',
 }
 
+const PAGE_SIZE = 10
+
 function asJobList(payload) {
   if (Array.isArray(payload)) return payload
   if (Array.isArray(payload?.content)) return payload.content
   return []
 }
 
+function asPageMeta(payload) {
+  if (!payload || Array.isArray(payload) || !Array.isArray(payload.content)) return null
+  return {
+    number: payload.number ?? 0,
+    totalPages: payload.totalPages ?? 1,
+    totalElements: payload.totalElements ?? payload.content.length,
+    first: payload.first ?? payload.number === 0,
+    last: payload.last ?? payload.number >= (payload.totalPages ?? 1) - 1,
+  }
+}
+
 export default function JobsPage() {
   const { role } = useAuth()
+  const confirm = useConfirm()
   const isJobSeeker = role === 'JOB_SEEKER'
   const [jobs, setJobs] = useState([])
+  const [pageMeta, setPageMeta] = useState(null)
+  const [activeView, setActiveView] = useState('all')
   const [filters, setFilters] = useState({
     keyword: '',
     location: '',
@@ -57,13 +74,15 @@ export default function JobsPage() {
     }
   }
 
-  async function loadJobs() {
+  async function loadJobs(targetPage = 0) {
     setError('')
     setIsLoadingJobs(true)
     try {
-      const response = await api.get('/api/jobs')
+      const response = await api.get('/api/jobs', { params: { page: targetPage, size: PAGE_SIZE } })
       setJobs(asJobList(response.data))
+      setPageMeta(asPageMeta(response.data))
       setShowSavedOnly(false)
+      setActiveView('all')
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {
@@ -77,7 +96,9 @@ export default function JobsPage() {
     try {
       const response = await api.get('/api/jobs/saved')
       setJobs(asJobList(response.data))
+      setPageMeta(null)
       setShowSavedOnly(true)
+      setActiveView('saved')
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {
@@ -112,8 +133,7 @@ export default function JobsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function searchJobs(event) {
-    event.preventDefault()
+  async function fetchSearchResults(targetPage = 0) {
     setError('')
     setIsLoadingJobs(true)
     try {
@@ -124,13 +144,31 @@ export default function JobsPage() {
           jobType: filters.jobType || undefined,
           minSalary: filters.minSalary ? Number(filters.minSalary) : undefined,
           maxExperience: filters.maxExperience ? Number(filters.maxExperience) : undefined,
+          page: targetPage,
+          size: PAGE_SIZE,
         },
       })
       setJobs(asJobList(response.data))
+      setPageMeta(asPageMeta(response.data))
+      setShowSavedOnly(false)
+      setActiveView('search')
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {
       setIsLoadingJobs(false)
+    }
+  }
+
+  function searchJobs(event) {
+    event.preventDefault()
+    fetchSearchResults(0)
+  }
+
+  function goToPage(targetPage) {
+    if (activeView === 'search') {
+      fetchSearchResults(targetPage)
+    } else {
+      loadJobs(targetPage)
     }
   }
 
@@ -192,6 +230,7 @@ export default function JobsPage() {
     try {
       const response = await api.get(`/api/jobs/${jobIdLookup}`)
       setJobs(response.data ? [response.data] : [])
+      setPageMeta(null)
       setSuccess('Loaded job by ID')
     } catch (err) {
       setError(getErrorMessage(err))
@@ -208,6 +247,7 @@ export default function JobsPage() {
     try {
       const response = await api.get(`/api/jobs/company/${companyIdLookup}`)
       setJobs(asJobList(response.data))
+      setPageMeta(null)
       setSuccess('Loaded jobs by company')
     } catch (err) {
       setError(getErrorMessage(err))
@@ -233,6 +273,12 @@ export default function JobsPage() {
     event.preventDefault()
     setError('')
     setSuccess('')
+    const confirmed = await confirm({
+      title: `Delete job #${deleteJobId}?`,
+      message: 'This permanently removes the job listing. This cannot be undone.',
+      confirmLabel: 'Delete job',
+    })
+    if (!confirmed) return
     try {
       await api.delete(`/api/jobs/${deleteJobId}`)
       setSuccess('Job deleted')
@@ -253,19 +299,19 @@ export default function JobsPage() {
 
         <form className="mt-4 grid gap-3 md:grid-cols-6" onSubmit={searchJobs}>
           <input
-            className="rounded-xl border border-slate-300 px-3 py-2"
+            className="input"
             placeholder="Keyword"
             value={filters.keyword}
             onChange={(event) => setFilters((prev) => ({ ...prev, keyword: event.target.value }))}
           />
           <input
-            className="rounded-xl border border-slate-300 px-3 py-2"
+            className="input"
             placeholder="Location"
             value={filters.location}
             onChange={(event) => setFilters((prev) => ({ ...prev, location: event.target.value }))}
           />
           <select
-            className="rounded-xl border border-slate-300 px-3 py-2"
+            className="input"
             value={filters.jobType}
             onChange={(event) => setFilters((prev) => ({ ...prev, jobType: event.target.value }))}
           >
@@ -275,13 +321,13 @@ export default function JobsPage() {
             <option value="CONTRACT">CONTRACT</option>
           </select>
           <input
-            className="rounded-xl border border-slate-300 px-3 py-2"
+            className="input"
             placeholder="Min salary"
             value={filters.minSalary}
             onChange={(event) => setFilters((prev) => ({ ...prev, minSalary: event.target.value }))}
           />
           <input
-            className="rounded-xl border border-slate-300 px-3 py-2"
+            className="input"
             placeholder="Max experience"
             value={filters.maxExperience}
             onChange={(event) =>
@@ -290,7 +336,7 @@ export default function JobsPage() {
           />
           <button
             type="submit"
-            className="rounded-xl bg-cyan-600 px-4 py-2 font-bold text-white hover:bg-cyan-700"
+            className="btn btn-accent"
           >
             Search
           </button>
@@ -299,23 +345,23 @@ export default function JobsPage() {
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           <form className="flex gap-2" onSubmit={getJobById}>
             <input
-              className="flex-1 rounded-xl border border-slate-300 px-3 py-2"
+              className="input flex-1"
               placeholder="Get job by ID"
               value={jobIdLookup}
               onChange={(event) => setJobIdLookup(event.target.value)}
             />
-            <button type="submit" className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-bold text-white">
+            <button type="submit" className="btn btn-dark btn-sm">
               Get
             </button>
           </form>
           <form className="flex gap-2" onSubmit={getJobsByCompany}>
             <input
-              className="flex-1 rounded-xl border border-slate-300 px-3 py-2"
+              className="input flex-1"
               placeholder="Get jobs by company ID"
               value={companyIdLookup}
               onChange={(event) => setCompanyIdLookup(event.target.value)}
             />
-            <button type="submit" className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-bold text-white">
+            <button type="submit" className="btn btn-dark btn-sm">
               Load
             </button>
           </form>
@@ -325,19 +371,15 @@ export default function JobsPage() {
           <div className="mt-3 flex gap-2">
             <button
               type="button"
-              onClick={loadJobs}
-              className={`rounded-xl px-3 py-2 text-sm font-bold ${
-                !showSavedOnly ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'
-              }`}
+              onClick={() => loadJobs(0)}
+              className={`btn btn-sm ${!showSavedOnly ? 'btn-dark' : 'btn-secondary'}`}
             >
               All Jobs
             </button>
             <button
               type="button"
               onClick={loadSavedJobs}
-              className={`rounded-xl px-3 py-2 text-sm font-bold ${
-                showSavedOnly ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'
-              }`}
+              className={`btn btn-sm ${showSavedOnly ? 'btn-dark' : 'btn-secondary'}`}
             >
               Saved Jobs
             </button>
@@ -360,31 +402,76 @@ export default function JobsPage() {
         {!isLoadingJobs && jobs.length > 0 ? (
           <div className="mt-4 grid gap-3">
             {jobs.map((job) => (
-              <article key={job.id} className="rounded-2xl border border-slate-200 p-4">
+              <article key={job.id} className="item-card">
                 <div className="flex items-start justify-between gap-3">
-                  <p className="text-lg font-black text-slate-900">{job.title}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-lg font-black text-slate-900">{job.title}</p>
+                    {job.source && job.source !== 'RECRUITER' ? (
+                      <span className="badge badge-info">{job.source}</span>
+                    ) : null}
+                  </div>
                   {isJobSeeker ? (
                     <button
                       type="button"
                       onClick={() => toggleSaveJob(job.id)}
                       aria-label={savedJobIds.has(job.id) ? 'Unsave job' : 'Save job'}
-                      className={`shrink-0 rounded-xl px-3 py-1 text-sm font-bold ${
-                        savedJobIds.has(job.id)
-                          ? 'bg-amber-500 text-amber-950'
-                          : 'bg-slate-100 text-slate-700'
+                      className={`btn btn-sm shrink-0 ${
+                        savedJobIds.has(job.id) ? 'btn-warning' : 'btn-secondary'
                       }`}
                     >
                       {savedJobIds.has(job.id) ? '★ Saved' : '☆ Save'}
                     </button>
                   ) : null}
                 </div>
+                {job.companyName ? (
+                  <p className="mt-1 text-sm font-semibold text-slate-700">{job.companyName}</p>
+                ) : null}
                 <p className="text-sm text-slate-600">{job.location} • {job.jobType}</p>
                 <p className="mt-2 text-sm text-slate-700">{job.description}</p>
-                <p className="mt-2 text-xs uppercase tracking-wider text-slate-500">
-                  Status: {job.status}
-                </p>
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs uppercase tracking-wider text-slate-500">
+                    Status: {job.status}
+                  </p>
+                  {job.externalUrl ? (
+                    <a
+                      href={job.externalUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-semibold text-indigo-600 hover:underline"
+                    >
+                      View original listing →
+                    </a>
+                  ) : null}
+                </div>
               </article>
             ))}
+          </div>
+        ) : null}
+
+        {!isLoadingJobs && pageMeta && pageMeta.totalPages > 1 ? (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-slate-500">
+              Page {pageMeta.number + 1} of {pageMeta.totalPages} &middot; {pageMeta.totalElements} job
+              {pageMeta.totalElements === 1 ? '' : 's'} total
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={pageMeta.first}
+                onClick={() => goToPage(pageMeta.number - 1)}
+                className="btn btn-secondary btn-sm"
+              >
+                &larr; Previous
+              </button>
+              <button
+                type="button"
+                disabled={pageMeta.last}
+                onClick={() => goToPage(pageMeta.number + 1)}
+                className="btn btn-secondary btn-sm"
+              >
+                Next &rarr;
+              </button>
+            </div>
           </div>
         ) : null}
       </SectionCard>
@@ -393,28 +480,28 @@ export default function JobsPage() {
         <SectionCard title="Post Job" subtitle="Recruiter/Admin action: create new listings.">
           <form className="grid gap-3 md:grid-cols-2" onSubmit={createJob}>
             <input
-              className="rounded-xl border border-slate-300 px-3 py-2"
+              className="input"
               placeholder="Title"
               required
               value={form.title}
               onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
             />
             <input
-              className="rounded-xl border border-slate-300 px-3 py-2"
+              className="input"
               placeholder="Company ID"
               required
               value={form.companyId}
               onChange={(event) => setForm((prev) => ({ ...prev, companyId: event.target.value }))}
             />
             <input
-              className="rounded-xl border border-slate-300 px-3 py-2"
+              className="input"
               placeholder="Location"
               required
               value={form.location}
               onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
             />
             <select
-              className="rounded-xl border border-slate-300 px-3 py-2"
+              className="input"
               value={form.jobType}
               onChange={(event) => setForm((prev) => ({ ...prev, jobType: event.target.value }))}
             >
@@ -423,7 +510,7 @@ export default function JobsPage() {
               <option value="CONTRACT">CONTRACT</option>
             </select>
             <textarea
-              className="md:col-span-2 rounded-xl border border-slate-300 px-3 py-2"
+              className="input md:col-span-2"
               placeholder="Description"
               rows={4}
               required
@@ -431,19 +518,19 @@ export default function JobsPage() {
               onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
             />
             <input
-              className="rounded-xl border border-slate-300 px-3 py-2"
+              className="input"
               placeholder="Min salary"
               value={form.minSalary}
               onChange={(event) => setForm((prev) => ({ ...prev, minSalary: event.target.value }))}
             />
             <input
-              className="rounded-xl border border-slate-300 px-3 py-2"
+              className="input"
               placeholder="Max salary"
               value={form.maxSalary}
               onChange={(event) => setForm((prev) => ({ ...prev, maxSalary: event.target.value }))}
             />
             <input
-              className="rounded-xl border border-slate-300 px-3 py-2"
+              className="input"
               placeholder="Experience required"
               value={form.experienceRequired}
               onChange={(event) =>
@@ -451,43 +538,43 @@ export default function JobsPage() {
               }
             />
             <input
-              className="rounded-xl border border-slate-300 px-3 py-2"
+              className="input"
               placeholder="Skills (comma-separated)"
               value={form.skills}
               onChange={(event) => setForm((prev) => ({ ...prev, skills: event.target.value }))}
             />
             <button
               type="submit"
-              className="md:col-span-2 rounded-xl bg-slate-900 px-4 py-2 font-bold text-white"
+              className="btn btn-dark md:col-span-2"
             >
               Publish Job
             </button>
           </form>
 
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <form className="grid gap-3 rounded-2xl border border-slate-200 p-3" onSubmit={updateJob}>
+            <form className="item-card grid gap-3" onSubmit={updateJob}>
               <p className="text-sm font-semibold text-slate-700">PUT /api/jobs/{'{id}'}</p>
               <input
-                className="rounded-xl border border-slate-300 px-3 py-2"
+                className="input"
                 placeholder="Job ID to update"
                 value={updateJobId}
                 onChange={(event) => setUpdateJobId(event.target.value)}
               />
-              <button type="submit" className="rounded-xl bg-slate-900 px-4 py-2 font-bold text-white">
+              <button type="submit" className="btn btn-dark">
                 Update Job Using Form Data
               </button>
             </form>
 
-            <form className="grid gap-3 rounded-2xl border border-slate-200 p-3" onSubmit={updateJobStatus}>
+            <form className="item-card grid gap-3" onSubmit={updateJobStatus}>
               <p className="text-sm font-semibold text-slate-700">PATCH /api/jobs/{'{id}'}/status</p>
               <input
-                className="rounded-xl border border-slate-300 px-3 py-2"
+                className="input"
                 placeholder="Job ID"
                 value={statusJobId}
                 onChange={(event) => setStatusJobId(event.target.value)}
               />
               <select
-                className="rounded-xl border border-slate-300 px-3 py-2"
+                className="input"
                 value={statusValue}
                 onChange={(event) => setStatusValue(event.target.value)}
               >
@@ -495,20 +582,20 @@ export default function JobsPage() {
                 <option value="CLOSED">CLOSED</option>
                 <option value="DRAFT">DRAFT</option>
               </select>
-              <button type="submit" className="rounded-xl bg-amber-500 px-4 py-2 font-bold text-amber-950">
+              <button type="submit" className="btn btn-warning">
                 Update Status
               </button>
             </form>
 
-            <form className="grid gap-3 rounded-2xl border border-slate-200 p-3 md:col-span-2" onSubmit={deleteJob}>
+            <form className="item-card grid gap-3 md:col-span-2" onSubmit={deleteJob}>
               <p className="text-sm font-semibold text-slate-700">DELETE /api/jobs/{'{id}'}</p>
               <input
-                className="rounded-xl border border-slate-300 px-3 py-2"
+                className="input"
                 placeholder="Job ID"
                 value={deleteJobId}
                 onChange={(event) => setDeleteJobId(event.target.value)}
               />
-              <button type="submit" className="rounded-xl bg-rose-500 px-4 py-2 font-bold text-white">
+              <button type="submit" className="btn btn-danger">
                 Delete Job
               </button>
             </form>

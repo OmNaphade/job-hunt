@@ -6,6 +6,9 @@ import org.omnaphade.job_service.entities.Job;
 
 public class JobMapper {
 
+    private JobMapper() {
+    }
+
     public static JobResponseDTO toDTO(Job job) {
 
         JobResponseDTO dto = new JobResponseDTO();
@@ -21,6 +24,9 @@ public class JobMapper {
         dto.setExperienceRequired(job.getExperienceRequired());
         dto.setStatus(job.getStatus().name());
         dto.setCreatedAt(job.getCreatedAt());
+        dto.setSource(job.getSource() != null ? job.getSource().name() : null);
+        dto.setExternalUrl(job.getExternalUrl());
+        dto.setCompanyName(job.getCompanyName());
 
         return dto;
     }

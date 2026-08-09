@@ -462,6 +462,32 @@ Errors: `401` current password wrong · `400` validation failed
 
 ---
 
+### POST /api/auth/password-reset/request — Public
+```json
+// Request
+{ "email": "alice@example.com" }
+// Response: 204 No Content
+```
+Always returns `204` whether or not the email exists (deliberately non-enumerating, so callers can't
+probe for registered accounts). On a match, a reset token (`UUID.UUID`, SHA-256-hashed at rest, 30-minute
+expiry, single-use) is generated and any prior unused tokens for that user are deleted. **No email/SMS
+integration is wired up** — the raw token is only written to the `auth_service` application log
+(`Password reset token for <email>: <token>`); wire up real delivery before using this in production.
+Frontend flow: `AuthPage` → "Forgot password?".
+
+---
+
+### POST /api/auth/password-reset/confirm — Public
+```json
+// Request
+{ "token": "<raw token from the log>", "newPassword": "NewPass456!" }  // newPassword min 6 chars
+// Response: 204 No Content
+```
+On success, all of the user's refresh tokens are revoked (forces re-login everywhere).
+Errors: `400` invalid, expired, or already-used token
+
+---
+
 ### DELETE /api/auth/users/{userId} 🔒 ADMIN only
 Response: `204 No Content`. Errors: `403` not admin · `404` not found
 

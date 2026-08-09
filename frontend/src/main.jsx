@@ -6,18 +6,24 @@ import './index.css'
 import App from './App.jsx'
 import { AuthProvider } from './context/AuthContext'
 import { ToastProvider } from './components/ToastProvider'
+import { ConfirmDialogProvider } from './components/ConfirmDialogProvider'
+import ErrorBoundary from './components/ErrorBoundary'
 import { queryClient } from './lib/queryClient'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <BrowserRouter>
-      <QueryClientProvider client={queryClient}>
-        <ToastProvider>
-          <AuthProvider>
-            <App />
-          </AuthProvider>
-        </ToastProvider>
-      </QueryClientProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <QueryClientProvider client={queryClient}>
+          <ToastProvider>
+            <ConfirmDialogProvider>
+              <AuthProvider>
+                <App />
+              </AuthProvider>
+            </ConfirmDialogProvider>
+          </ToastProvider>
+        </QueryClientProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   </StrictMode>,
 )

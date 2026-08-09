@@ -22,4 +22,7 @@ public class JobResponseDTO {
     private String status;
     private LocalDateTime createdAt;
     private List<String> skills;
+    private String source;
+    private String externalUrl;
+    private String companyName;
 }

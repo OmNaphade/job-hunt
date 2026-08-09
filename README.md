@@ -9,7 +9,9 @@ Production-style job portal platform with microservices backend and role-based f
 ## Latest Project Details
 
 - Services: 9 microservices (auth, user, job, company, application, notification, api_gateway, config_server, service_registry)
-- Frontend: React + Vite + Tailwind (Node 22), including a live admin monitoring dashboard at `/monitoring`
+- Frontend: React + Vite + Tailwind (Node 22), with light/dark themes, a live admin monitoring dashboard
+  at `/monitoring`, a password-reset flow, a notification center with an unread badge, paginated job
+  search, and confirmation dialogs guarding every destructive action
 - Backend: Java 21 (Spring Boot 3.5, Spring Cloud), PostgreSQL per service, Kafka for event-driven notifications
 - Resilience & Security: JWT + role-based `@PreAuthorize` RBAC, Resilience4j circuit breakers (auth → user), and a gateway-level per-client-IP rate limiter (stricter on `/api/auth/login`/`register`)
 - Candidate features: saved/bookmarked jobs (`job_service`), resume upload on applications and profile avatar upload (local disk storage, volume-mounted in Docker) — see `API_DOCS.md` for endpoints
@@ -148,7 +150,8 @@ the "Local Operations Scripts" section of [`STARTUP.md`](./STARTUP.md) for the f
   and `notification_service` (notifications, read/unread state) now have real unit tests over their
   service layers as well. `config_server` and `service_registry` still have only the Spring Boot stub
   test — they're thin infra wrappers with no custom logic to cover.
-- Frontend: `npm run test` (Vitest) and `npm run test:e2e` (Playwright)
+- Frontend: `npm run test` (Vitest + React Testing Library — component tests cover the theme toggle,
+  account dropdown, and the reusable confirmation-dialog system) and `npm run test:e2e` (Playwright)
 - CI runs the full backend test matrix (all 7 HTTP-facing services) plus an integration smoke stage that
   spins up the full Docker Compose stack and runs the synthetic + journey scripts above.
 
