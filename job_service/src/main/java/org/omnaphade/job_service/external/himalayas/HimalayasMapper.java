@@ -1,6 +1,7 @@
 package org.omnaphade.job_service.external.himalayas;
 
 import org.omnaphade.job_service.external.ExternalJobDTO;
+import org.omnaphade.job_service.external.JobTypeNormalizer;
 
 import java.util.Collections;
 import java.util.List;
@@ -42,17 +43,7 @@ public class HimalayasMapper {
     }
 
     static String toJobType(String employmentType) {
-        if (employmentType == null) {
-            return "FULL_TIME";
-        }
-        String normalized = employmentType.trim().toLowerCase();
-        if (normalized.contains("part")) {
-            return "PART_TIME";
-        }
-        if (normalized.contains("contract") || normalized.contains("temporary")) {
-            return "CONTRACT";
-        }
-        return "FULL_TIME";
+        return JobTypeNormalizer.normalize(employmentType);
     }
 
 }

@@ -24,6 +24,7 @@ public class AdzunaClient implements ExternalJobProvider {
     private final int resultsPerPage;
     private final String category;
     private final String keyword;
+    private final int maxPagesPerRun;
 
     public AdzunaClient(WebClient.Builder webClientBuilder,
                          @Value("${adzuna.base-url:https://api.adzuna.com/v1/api}") String baseUrl,
@@ -32,7 +33,8 @@ public class AdzunaClient implements ExternalJobProvider {
                          @Value("${adzuna.country:us}") String country,
                          @Value("${adzuna.results-per-page:20}") int resultsPerPage,
                          @Value("${adzuna.category:it-jobs}") String category,
-                         @Value("${adzuna.keyword:}") String keyword) {
+                         @Value("${adzuna.keyword:}") String keyword,
+                         @Value("${adzuna.max-pages-per-run:5}") int maxPagesPerRun) {
         this.webClient = webClientBuilder.baseUrl(baseUrl).build();
         this.appId = appId;
         this.appKey = appKey;
@@ -40,11 +42,17 @@ public class AdzunaClient implements ExternalJobProvider {
         this.resultsPerPage = resultsPerPage;
         this.category = category;
         this.keyword = keyword;
+        this.maxPagesPerRun = maxPagesPerRun;
     }
 
     @Override
     public JobSource getSource() {
         return JobSource.ADZUNA;
+    }
+
+    @Override
+    public int getMaxPagesPerRun() {
+        return maxPagesPerRun;
     }
 
     @Override

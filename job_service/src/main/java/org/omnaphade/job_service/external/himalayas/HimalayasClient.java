@@ -20,17 +20,25 @@ public class HimalayasClient implements ExternalJobProvider {
 
     private final WebClient webClient;
     private final String query;
+    private final int maxPagesPerRun;
 
     public HimalayasClient(WebClient.Builder webClientBuilder,
                             @Value("${himalayas.base-url:https://himalayas.app}") String baseUrl,
-                            @Value("${himalayas.query:software developer}") String query) {
+                            @Value("${himalayas.query:software developer}") String query,
+                            @Value("${himalayas.max-pages-per-run:5}") int maxPagesPerRun) {
         this.webClient = webClientBuilder.baseUrl(baseUrl).build();
         this.query = query;
+        this.maxPagesPerRun = maxPagesPerRun;
     }
 
     @Override
     public JobSource getSource() {
         return JobSource.HIMALAYAS;
+    }
+
+    @Override
+    public int getMaxPagesPerRun() {
+        return maxPagesPerRun;
     }
 
     @Override

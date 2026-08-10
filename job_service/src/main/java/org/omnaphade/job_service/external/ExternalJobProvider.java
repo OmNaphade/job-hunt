@@ -20,4 +20,11 @@ public interface ExternalJobProvider {
      */
     List<ExternalJobDTO> fetchJobs(int page);
 
+    /**
+     * Upper bound on pages {@code ExternalJobImportServiceImpl} will fetch from this provider per import
+     * run. Each provider owns this value (backed by its own {@code <provider>.max-pages-per-run} property)
+     * so the importer never needs to know a specific provider's config keys.
+     */
+    int getMaxPagesPerRun();
+
 }

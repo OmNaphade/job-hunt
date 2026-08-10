@@ -12,7 +12,6 @@ import org.omnaphade.job_service.entities.JobStatus;
 import org.omnaphade.job_service.external.ExternalJobDTO;
 import org.omnaphade.job_service.external.ExternalJobProvider;
 import org.omnaphade.job_service.repository.JobRepository;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Optional;
@@ -35,8 +34,8 @@ class ExternalJobImportServiceImplTest {
     @BeforeEach
     void setUp() {
         importService = new ExternalJobImportServiceImpl(List.of(provider), jobRepository);
-        ReflectionTestUtils.setField(importService, "maxPagesPerRun", 1);
         lenient().when(provider.getSource()).thenReturn(JobSource.ADZUNA);
+        lenient().when(provider.getMaxPagesPerRun()).thenReturn(1);
     }
 
     private ExternalJobDTO sampleDto(String externalId) {

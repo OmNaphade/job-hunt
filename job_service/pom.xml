@@ -251,6 +251,15 @@
                     </excludes>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!-- Tests tagged "live" hit real external APIs over the network and are opt-in only:
+                         run them explicitly with `mvn test -DexcludedGroups=`. -->
+                    <excludedGroups>live</excludedGroups>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 

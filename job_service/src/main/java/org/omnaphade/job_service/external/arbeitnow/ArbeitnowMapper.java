@@ -1,6 +1,8 @@
 package org.omnaphade.job_service.external.arbeitnow;
 
 import org.omnaphade.job_service.external.ExternalJobDTO;
+import org.omnaphade.job_service.external.JobTypeNormalizer;
+import org.omnaphade.job_service.external.LocationResolver;
 
 import java.util.Collections;
 import java.util.List;
@@ -51,24 +53,12 @@ public class ArbeitnowMapper {
     }
 
     private static String toLocation(ArbeitnowSearchResponse.ArbeitnowJob job) {
-        if (job.getLocation() != null && !job.getLocation().isBlank()) {
-            return job.getLocation();
-        }
-        return Boolean.TRUE.equals(job.getRemote()) ? "Remote" : "Not specified";
+        return LocationResolver.resolve(job.getLocation(), Boolean.TRUE.equals(job.getRemote()));
     }
 
     static String toJobType(List<String> jobTypes) {
-        if (jobTypes == null || jobTypes.isEmpty()) {
-            return "FULL_TIME";
-        }
-        String normalized = String.join(" ", jobTypes).toLowerCase();
-        if (normalized.contains("part")) {
-            return "PART_TIME";
-        }
-        if (normalized.contains("contract") || normalized.contains("freelance")) {
-            return "CONTRACT";
-        }
-        return "FULL_TIME";
+        String joined = jobTypes == null ? null : String.join(" ", jobTypes);
+        return JobTypeNormalizer.normalize(joined);
     }
 
 }

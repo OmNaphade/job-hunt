@@ -194,6 +194,8 @@ services:
       - ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
       - ADZUNA_APP_ID=${ADZUNA_APP_ID:-}
       - ADZUNA_APP_KEY=${ADZUNA_APP_KEY:-}
+      - FINDWORK_API_KEY=${FINDWORK_API_KEY:-}
+      - JOBDATALAKE_API_KEY=${JOBDATALAKE_API_KEY:-}
 
   company-service:
     build:

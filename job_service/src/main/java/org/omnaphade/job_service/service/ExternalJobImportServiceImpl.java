@@ -9,7 +9,6 @@ import org.omnaphade.job_service.external.ExternalJobProvider;
 import org.omnaphade.job_service.repository.JobRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -30,9 +29,6 @@ public class ExternalJobImportServiceImpl implements IExternalJobImportService {
 
     private final List<ExternalJobProvider> providers;
     private final JobRepository jobRepository;
-
-    @Value("${adzuna.max-pages-per-run:5}")
-    private int maxPagesPerRun;
 
     @Override
     public ImportSummary importAll() {
@@ -71,7 +67,7 @@ public class ExternalJobImportServiceImpl implements IExternalJobImportService {
 
     private List<ExternalJobDTO> fetchAllPages(ExternalJobProvider provider) {
         List<ExternalJobDTO> all = new ArrayList<>();
-        for (int page = 1; page <= maxPagesPerRun; page++) {
+        for (int page = 1; page <= provider.getMaxPagesPerRun(); page++) {
             List<ExternalJobDTO> pageResults = provider.fetchJobs(page);
             if (pageResults == null || pageResults.isEmpty()) {
                 break;
