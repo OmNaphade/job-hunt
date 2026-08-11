@@ -1,0 +1,17 @@
+:80 {
+	encode gzip
+
+	# Same-origin API proxy: the browser sees one origin for both the page and its
+	# API calls, so no CORS handshake is ever needed for the deployed frontend.
+	handle /api/* {
+		reverse_proxy api-gateway:8080
+	}
+
+	# Everything else is the built SPA, with client-side routes falling back to
+	# index.html so a hard refresh on e.g. /jobs/42 doesn't 404.
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

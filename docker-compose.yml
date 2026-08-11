@@ -1,8 +1,10 @@
 services:
 
   postgres:
+    restart: unless-stopped
     image: postgres:16-alpine
     container_name: jobportal-postgres
+    mem_limit: 512m
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: manager
@@ -19,8 +21,10 @@ services:
       retries: 5
 
   zookeeper:
+    restart: unless-stopped
     image: confluentinc/cp-zookeeper:7.6.0
     container_name: jobportal-zookeeper
+    mem_limit: 256m
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -28,8 +32,10 @@ services:
       - "2181:2181"
 
   kafka:
+    restart: unless-stopped
     image: confluentinc/cp-kafka:7.6.0
     container_name: jobportal-kafka
+    mem_limit: 512m
     depends_on:
       - zookeeper
     ports:
@@ -47,8 +53,10 @@ services:
       retries: 5
 
   zipkin:
+    restart: unless-stopped
     image: openzipkin/zipkin:latest
     container_name: jobportal-zipkin
+    mem_limit: 320m
     ports:
       - "9411:9411"
     healthcheck:
@@ -58,14 +66,17 @@ services:
       retries: 5
 
   service-registry:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: service_registry/Dockerfile
     container_name: service-registry
+    mem_limit: 384m
     ports:
       - "8761:8761"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=75.0
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
       interval: 15s
@@ -73,10 +84,12 @@ services:
       retries: 5
 
   config-server:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: config_server/Dockerfile
     container_name: config-server
+    mem_limit: 384m
     ports:
       - "8888:8888"
     depends_on:
@@ -84,6 +97,7 @@ services:
         condition: service_healthy
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka/
+      - JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=75.0
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8888/actuator/health"]
       interval: 15s
@@ -91,16 +105,19 @@ services:
       retries: 5
 
   api-gateway:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: api_gateway/Dockerfile
     container_name: api-gateway
+    mem_limit: 448m
     ports:
       - "8080:8080"
     depends_on:
       service-registry:
         condition: service_healthy
     environment:
+      - JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=75.0
       - JWT_SECRET=${JWT_SECRET:-default-dev-secret-key-change-in-production-32chars}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173}
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka/
@@ -122,10 +139,12 @@ services:
       - RATE_LIMIT_LOGIN_LIMIT=${RATE_LIMIT_LOGIN_LIMIT:-20}
 
   auth-service:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: auth_service/Dockerfile
     container_name: auth-service
+    mem_limit: 704m
     ports:
       - "8081:8081"
     depends_on:
@@ -136,6 +155,7 @@ services:
       service-registry:
         condition: service_healthy
     environment:
+      - JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=75.0
       - JWT_SECRET=${JWT_SECRET:-default-dev-secret-key-change-in-production-32chars}
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/jobapp_db
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
@@ -148,10 +168,12 @@ services:
       - ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
 
   user-service:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: user_service/Dockerfile
     container_name: user-service
+    mem_limit: 704m
     ports:
       - "8082:8082"
     depends_on:
@@ -160,6 +182,7 @@ services:
       service-registry:
         condition: service_healthy
     environment:
+      - JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=75.0
       - JWT_SECRET=${JWT_SECRET:-default-dev-secret-key-change-in-production-32chars}
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/jobapp_db
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka/
@@ -171,10 +194,12 @@ services:
       - user_uploads_data:/app/uploads
 
   job-service:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: job_service/Dockerfile
     container_name: job-service
+    mem_limit: 768m
     ports:
       - "8083:8083"
     depends_on:
@@ -185,6 +210,7 @@ services:
       service-registry:
         condition: service_healthy
     environment:
+      - JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=75.0
       - JWT_SECRET=${JWT_SECRET:-default-dev-secret-key-change-in-production-32chars}
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/jobapp_db
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
@@ -198,10 +224,12 @@ services:
       - JOBDATALAKE_API_KEY=${JOBDATALAKE_API_KEY:-}
 
   company-service:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: company_service/Dockerfile
     container_name: company-service
+    mem_limit: 640m
     ports:
       - "8084:8084"
     depends_on:
@@ -210,6 +238,7 @@ services:
       service-registry:
         condition: service_healthy
     environment:
+      - JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=75.0
       - JWT_SECRET=${JWT_SECRET:-default-dev-secret-key-change-in-production-32chars}
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/jobapp_db
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka/
@@ -218,10 +247,12 @@ services:
       - ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
 
   application-service:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: application_service/Dockerfile
     container_name: application-service
+    mem_limit: 640m
     ports:
       - "8085:8085"
     depends_on:
@@ -232,6 +263,7 @@ services:
       service-registry:
         condition: service_healthy
     environment:
+      - JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=75.0
       - JWT_SECRET=${JWT_SECRET:-default-dev-secret-key-change-in-production-32chars}
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/jobapp_db
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
@@ -244,10 +276,12 @@ services:
       - application_uploads_data:/app/uploads
 
   notification-service:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: notification_service/Dockerfile
     container_name: notification-service
+    mem_limit: 640m
     ports:
       - "8086:8086"
     depends_on:
@@ -258,6 +292,7 @@ services:
       service-registry:
         condition: service_healthy
     environment:
+      - JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=75.0
       - JWT_SECRET=${JWT_SECRET:-default-dev-secret-key-change-in-production-32chars}
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/jobapp_db
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
@@ -267,6 +302,21 @@ services:
       - SPRING_CLOUD_VAULT_ENABLED=false
       - SPRING_CLOUD_VAULT_FAIL_FAST=false
       - ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
+
+  frontend:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_BASE_URL: ""
+        VITE_ALLOW_SELF_REGISTER: "true"
+    container_name: frontend
+    mem_limit: 256m
+    ports:
+      - "80:80"
+    depends_on:
+      - api-gateway
 
 volumes:
   postgres_data:

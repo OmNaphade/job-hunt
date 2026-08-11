@@ -1,0 +1,64 @@
+name: OCI Instance Auto-Provision (retry until capacity available)
+
+# Deliberately separate from ci.yml: this provisions one-time infrastructure
+# (the OCI compute instance), not the application. It has nothing to do with
+# building, testing, or deploying app code, runs on its own schedule instead of
+# on push/PR, and self-disables once it succeeds so it doesn't run forever.
+#
+# See scripts/oci-provision-retry.sh for the actual launch-attempt logic — this
+# workflow's job is just to schedule that script and react to its outcome.
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  actions: write
+
+jobs:
+  try-launch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install OCI CLI
+        run: pip install oci-cli
+
+      - name: Configure OCI CLI from secrets
+        run: |
+          mkdir -p ~/.oci
+          printf '%s' "${{ secrets.OCI_PRIVATE_KEY }}" > ~/.oci/key.pem
+          chmod 600 ~/.oci/key.pem
+          cat > ~/.oci/config <<EOF
+          [DEFAULT]
+          user=${{ secrets.OCI_USER_OCID }}
+          fingerprint=${{ secrets.OCI_FINGERPRINT }}
+          tenancy=${{ secrets.OCI_TENANCY_OCID }}
+          region=${{ secrets.OCI_REGION }}
+          key_file=~/.oci/key.pem
+          EOF
+
+      - name: Attempt instance launch
+        id: launch
+        env:
+          OCI_AVAILABILITY_DOMAIN: ${{ secrets.OCI_AVAILABILITY_DOMAIN }}
+          OCI_COMPARTMENT_ID: ${{ secrets.OCI_TENANCY_OCID }}
+          OCI_IMAGE_ID: ${{ secrets.OCI_IMAGE_ID }}
+          OCI_SUBNET_ID: ${{ secrets.OCI_SUBNET_ID }}
+          OCI_SSH_PUBLIC_KEY: ${{ secrets.OCI_SSH_PUBLIC_KEY }}
+        run: bash scripts/oci-provision-retry.sh
+
+      - name: Flag success and stop the schedule
+        if: steps.launch.outputs.success == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create \
+            --title "OCI instance created: job-portal-prod" \
+            --body "Public IP: ${{ steps.launch.outputs.public_ip }}
+
+          Provisioning succeeded. This workflow has now disabled itself — next step
+          is Step 3 (open the firewall) in OCI_DEPLOYMENT_GUIDE.md."
+          gh workflow disable "oci-provision-retry.yml"

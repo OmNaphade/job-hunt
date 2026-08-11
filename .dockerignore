@@ -1,0 +1,28 @@
+# Version control
+.git
+.github
+
+# IDE/editor
+.idea
+.vscode
+.claude
+
+# Frontend build artifacts (node_modules alone is >200MB and irrelevant to every
+# backend Dockerfile's build context, and dist/ gets rebuilt inside the frontend
+# image anyway)
+frontend/node_modules
+frontend/dist
+frontend/coverage
+
+# Maven build output (each service Dockerfile builds its own target/ fresh)
+**/target
+
+# Secrets — never let these end up inside a build context or image layer
+.env
+.env.local
+**/.env
+**/.env.local
+
+# Misc
+*.log
+.DS_Store
