@@ -4,6 +4,9 @@
 
 - Java 21+ (project targets Java 21; runs on Java 25)
 - PostgreSQL 14+ running on `localhost:5432`
+- Redis running on `localhost:6379` (query cache for job_service/company_service/user_service — see
+  `API_DOCS.md#caching`; the Redis client connects lazily so those services still *start* without it, but
+  every cached read/write throws until Redis is reachable)
 - Maven (or use `mvnw.cmd` wrapper)
 - *(Optional)* Kafka for notification events
 
@@ -22,6 +25,11 @@ Default credentials used by all services:
 - Database: `jobapp_db`
 - Username: `postgres`
 - Password: `manager`
+
+Start a local Redis for the query cache (skip if you already have one on `6379`):
+```powershell
+docker run -d --name redis -p 6379:6379 redis:7-alpine
+```
 
 ## 2. Build All Services
 
@@ -86,6 +94,8 @@ java -jar notification_service\target\notification_service-0.0.1-SNAPSHOT.jar --
 | `DB_NAME` | `jobapp_db` | Database name |
 | `DB_USER` | `postgres` | Database username |
 | `DB_PASSWORD` | `manager` | Database password |
+| `REDIS_HOST` | `localhost` | Redis host (job_service/company_service/user_service query cache) |
+| `REDIS_PORT` | `6379` | Redis port |
 
 Set via `.env.example` (copy to `.env`) or system environment.
 
@@ -96,7 +106,7 @@ To run everything including Kafka, Zookeeper, and all services:
 docker-compose up -d
 ```
 
-This starts: PostgreSQL, Zookeeper, Kafka, all 9 Spring services.
+This starts: PostgreSQL, Redis, Zookeeper, Kafka, all 9 Spring services.
 
 ## 8. Infrastructure Services (Optional for dev)
 

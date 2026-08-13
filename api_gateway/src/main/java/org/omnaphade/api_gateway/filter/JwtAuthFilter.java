@@ -8,6 +8,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
@@ -18,7 +20,14 @@ import java.io.IOException;
 import java.util.List;
 import java.util.regex.Pattern;
 
+/**
+ * Explicitly ordered right after {@link RateLimitFilter} so auth is fully resolved before anything
+ * downstream that makes decisions based on the outcome — notably {@link CacheControlFilter}/
+ * {@link ScopedEtagFilter}, which must never run (and thus never add caching headers) for a request this
+ * filter rejects.
+ */
 @Component
+@Order(Ordered.HIGHEST_PRECEDENCE + 2)
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     @Value("${jwt.secret}")

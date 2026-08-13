@@ -100,19 +100,20 @@ OS firewall → the port the app is listening on. Private-subnet instances skip 
 
 ## 3. What this application needs, per VM
 
-This is a **14-container** stack (`docker-compose.yml`, now split into `docker-compose.core.yml` and
-`docker-compose.edge.yml`): 7 Spring Boot services, Kafka, Zookeeper, Postgres, Zipkin, Eureka
+This is a **15-container** stack (`docker-compose.yml`, now split into `docker-compose.core.yml` and
+`docker-compose.edge.yml`): 7 Spring Boot services, Kafka, Zookeeper, Postgres, Redis, Zipkin, Eureka
 (`service-registry`), `config-server`, and a `frontend` service (React app built and served by Caddy).
 
 ### `job-portal-core` (ARM, `VM.Standard.A1.Flex`, 2 OCPU / 12 GB, **private subnet**)
 
-Everything except `frontend`: Postgres, Zookeeper, Kafka, Zipkin, `service-registry`, `config-server`,
-`api-gateway`, and all 6 domain services (auth/user/job/company/application/notification).
+Everything except `frontend`: Postgres, Redis, Zookeeper, Kafka, Zipkin, `service-registry`,
+`config-server`, `api-gateway`, and all 6 domain services (auth/user/job/company/application/notification).
 
 - **Docker Engine + Compose plugin v2.**
-- **~2 vCPU / 12GB RAM** — measured locally, this subset idles around 3.4GB RAM with the memory caps
-  already set in `docker-compose.core.yml`; 12GB leaves real headroom (more than before, since `frontend`'s
-  small footprint moved off this host entirely). CPU is the tighter resource — the initial
+- **~2 vCPU / 12GB RAM** — measured locally (before Redis was added) this subset idled around 3.4GB RAM
+  with the memory caps already set in `docker-compose.core.yml`; Redis adds a further 256m ceiling
+  (`mem_limit` in its compose block) but idles at a small fraction of that. 12GB leaves real headroom
+  either way. CPU is the tighter resource — the initial
   `docker compose -f docker-compose.core.yml up -d --build` (compiling 7 Maven projects) will be noticeably
   slower than on a beefier dev machine. That's expected, not a failure. Kafka & Zookeeper images are
   natively multi-arch (confirmed ARM64 builds exist for the `7.6.0` tag this project pins), so no image
@@ -409,11 +410,13 @@ docker exec jobportal-postgres psql -U postgres -d jobapp_db -c "
 ALTER TABLE jobs DROP CONSTRAINT jobs_source_check;
 ALTER TABLE jobs ADD CONSTRAINT jobs_source_check CHECK (source IN (
   'RECRUITER','ADZUNA','HIMALAYAS','ARBEITNOW',
-  'AI_DEV_JOBS','ARTIFICIAL_INTELLIGENCE_JOBS','FREEHIRE','FINDWORK','JOBDATALAKE'
+  'AI_DEV_JOBS','ARTIFICIAL_INTELLIGENCE_JOBS','FREEHIRE','FINDWORK','JOBDATALAKE',
+  'REMOTIVE','JOBICY'
 ));
 "
 ```
-This only needs to happen once per pre-existing database.
+This only needs to happen once per pre-existing database — but needs re-running (with the new value added
+to the list) every time a new `JobSource` is added to a database that already existed beforehand.
 
 **"Out of host capacity" when creating `job-portal-core`**
 Not a rejection — Ampere A1 free-tier demand in your region is high. Retry every few minutes.
