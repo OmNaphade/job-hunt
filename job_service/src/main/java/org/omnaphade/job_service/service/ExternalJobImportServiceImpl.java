@@ -2,6 +2,7 @@ package org.omnaphade.job_service.service;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.omnaphade.job_service.config.CacheConfig;
 import org.omnaphade.job_service.entities.Job;
 import org.omnaphade.job_service.external.ExternalJobDTO;
 import org.omnaphade.job_service.external.ExternalJobMapper;
@@ -9,6 +10,8 @@ import org.omnaphade.job_service.external.ExternalJobProvider;
 import org.omnaphade.job_service.repository.JobRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -31,6 +34,11 @@ public class ExternalJobImportServiceImpl implements IExternalJobImportService {
     private final JobRepository jobRepository;
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = CacheConfig.JOBS_LIST, allEntries = true),
+            @CacheEvict(value = CacheConfig.JOBS_SEARCH, allEntries = true),
+            @CacheEvict(value = CacheConfig.JOBS_BY_COMPANY, allEntries = true)
+    })
     public ImportSummary importAll() {
         int fetched = 0;
         int created = 0;

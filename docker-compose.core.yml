@@ -65,6 +65,19 @@ services:
       timeout: 10s
       retries: 5
 
+  redis:
+    restart: unless-stopped
+    image: redis:7-alpine
+    container_name: jobportal-redis
+    mem_limit: 256m
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   service-registry:
     restart: unless-stopped
     build:
@@ -181,6 +194,8 @@ services:
         condition: service_healthy
       service-registry:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=75.0
       - JWT_SECRET=${JWT_SECRET:-default-dev-secret-key-change-in-production-32chars}
@@ -190,6 +205,8 @@ services:
       - SPRING_CLOUD_VAULT_FAIL_FAST=false
       - ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
       - UPLOAD_DIR=/app/uploads
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     volumes:
       - user_uploads_data:/app/uploads
 
@@ -209,6 +226,8 @@ services:
         condition: service_healthy
       service-registry:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=75.0
       - JWT_SECRET=${JWT_SECRET:-default-dev-secret-key-change-in-production-32chars}
@@ -222,6 +241,8 @@ services:
       - ADZUNA_APP_KEY=${ADZUNA_APP_KEY:-}
       - FINDWORK_API_KEY=${FINDWORK_API_KEY:-}
       - JOBDATALAKE_API_KEY=${JOBDATALAKE_API_KEY:-}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
 
   company-service:
     restart: unless-stopped
@@ -237,6 +258,8 @@ services:
         condition: service_healthy
       service-registry:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=75.0
       - JWT_SECRET=${JWT_SECRET:-default-dev-secret-key-change-in-production-32chars}
@@ -245,6 +268,8 @@ services:
       - SPRING_CLOUD_VAULT_ENABLED=false
       - SPRING_CLOUD_VAULT_FAIL_FAST=false
       - ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
 
   application-service:
     restart: unless-stopped

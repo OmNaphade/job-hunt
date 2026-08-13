@@ -15,6 +15,8 @@ Production-style job portal platform with microservices backend and role-based f
 - Backend: Java 21 (Spring Boot 3.5, Spring Cloud), PostgreSQL per service, Kafka for event-driven notifications
 - Resilience & Security: JWT + role-based `@PreAuthorize` RBAC, Resilience4j circuit breakers (auth → user), and a gateway-level per-client-IP rate limiter (stricter on `/api/auth/login`/`register`)
 - Candidate features: saved/bookmarked jobs (`job_service`), resume upload on applications and profile avatar upload (local disk storage, volume-mounted in Docker) — see `API_DOCS.md` for endpoints
+- External job import: `job_service` pulls listings from 10 external job boards on a 6-hour scheduler (Adzuna, Findwork, JobDataLake need a free API key; Himalayas, Arbeitnow, AI Dev Jobs, AI Jobs Co, Freehire, Remotive, and Jobicy work with no key at all), each behind its own Resilience4j circuit breaker — see `job_service/src/main/resources/application.properties`
+- Caching: Redis-backed `@Cacheable` query caching on public read endpoints (`job_service`, `company_service`, `user_service`, 2–15 min TTLs depending on how often the data changes, evicted on writes) plus gateway-level HTTP caching (`Cache-Control` + weak `ETag`/`304` via `api_gateway`'s `CacheControlFilter`/`ScopedEtagFilter`) on the same public GET routes
 - Observability: Prometheus metrics + Zipkin distributed tracing on every service, Grafana dashboards in `operations/grafana/`, k6 load tests in `performance/k6/`
 - CI: GitHub Actions (build, test, integration smoke, Docker image build) — all 7 HTTP-facing services (including `api_gateway`) run their test suites in CI, not just build
 - Code Coverage: frontend (Vitest) + backend (JaCoCo, wired via the root `pom.xml` for every module) reported to Codecov — `job_service`, `application_service`, `auth_service`, `user_service`, `company_service`, and `notification_service` all have real unit tests over their service layers; `api_gateway` covers CORS/rate-limiting; `config_server` and `service_registry` still have only the Spring Boot stub test
@@ -44,7 +46,7 @@ This project provides a complete hiring lifecycle system: authentication, profil
 - Java 21, Spring Boot 3.5, Spring Cloud (Gateway, Eureka, Config Server)
 - Resilience4j (circuit breakers, rate limiting), Kafka (event-driven notifications)
 - React 19 + Vite + Tailwind CSS
-- PostgreSQL, Prometheus, Zipkin, Grafana, k6
+- PostgreSQL, Redis (query caching), Prometheus, Zipkin, Grafana, k6
 - Docker Compose, GitHub Actions
 
 ## Getting Started
@@ -83,7 +85,7 @@ backend environment variables and running services from source (without Docker).
 
 ## Usage
 
-Start full local stack (Postgres, Kafka, Zipkin, all 9 services):
+Start full local stack (Postgres, Redis, Kafka, Zipkin, all 9 services):
 
 ```bash
 docker compose up -d --build

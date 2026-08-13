@@ -10,6 +10,8 @@ public enum JobSource {
     ARTIFICIAL_INTELLIGENCE_JOBS,
     FREEHIRE,
     FINDWORK,
-    JOBDATALAKE
+    JOBDATALAKE,
+    REMOTIVE,
+    JOBICY
 
 }

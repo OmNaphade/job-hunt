@@ -20,17 +20,19 @@
 3. [Microservices Detail](#microservices-detail)
 4. [Service Communication](#service-communication)
 5. [Security Model](#security-model)
-6. [API Reference](#api-reference)
+6. [Caching](#caching)
+7. [External Job Import Sources](#external-job-import-sources)
+8. [API Reference](#api-reference)
    - [Auth Service](#1-auth-service-8081)
    - [User/Profile Service](#2-userprofile-service-8082)
    - [Job Service](#3-job-service-8083)
    - [Company Service](#4-company-service-8084)
    - [Application Service](#5-application-service-8085)
    - [Notification Service](#6-notification-service-8086)
-7. [Event-Driven Flows](#event-driven-flows)
-8. [Monitoring & Observability](#monitoring--observability)
-9. [Error Handling](#error-handling)
-10. [User Flows](#user-flows)
+9. [Event-Driven Flows](#event-driven-flows)
+10. [Monitoring & Observability](#monitoring--observability)
+11. [Error Handling](#error-handling)
+12. [User Flows](#user-flows)
 
 ---
 
@@ -339,6 +341,52 @@ Limits are configurable via `rate-limit.login.limit`, `rate-limit.login.refresh-
 | POST /api/users/{id}/avatar | ✅ | ✅ | ✅ |
 | GET /api/notifications | ✅ | ✅ | ✅ |
 | PATCH /api/notifications/read-all | ✅ | ✅ | ✅ |
+
+---
+
+## Caching
+
+Two complementary layers, both scoped to public, non-per-user GET routes only (saved jobs, profile, and
+other authorization-sensitive reads are never cached, to avoid staleness/leakage across users):
+
+**Gateway HTTP caching** (`api_gateway`, `filter.CacheControlFilter` + `filter.ScopedEtagFilter`) — adds
+`Cache-Control: public, max-age=60, must-revalidate` and a weak `ETag` to successful (2xx) GET responses
+on the allowlist below (`filter.HttpCachePaths`). A client sending back `If-None-Match` on an unchanged
+resource gets a bodyless `304 Not Modified`. `max-age` is configurable via `HTTP_CACHE_MAX_AGE_SECONDS`.
+
+**Service-level query caching** (Redis, `@Cacheable`/`@CacheEvict` in each service's `*ServiceImpl`,
+configured in `config.CacheConfig`) — caches the actual DB read, evicted on the corresponding writes:
+
+| Service | Cache name(s) | Backing method(s) | TTL | Evicted on |
+|---|---|---|---|---|
+| job_service | `jobs-list`, `jobs-search`, `jobs-by-company` | `getAllJobs`, `searchJobs`, `getJobsByCompany` | 2 min | any job create/update/status-change/delete, and every scheduled external import |
+| job_service | `jobs-by-id` | `getJobById` | 5 min | update/delete of that job |
+| company_service | `companies-list`, `company-recruiters` | `getAllCompanies`, `getRecruiters` | 5 min | company/recruiter create/update/delete |
+| company_service | `companies-by-id` | `getCompanyById` | 10 min | update/delete of that company |
+| user_service | `skills-all` | `getAllSkills` | 15 min | new skill added (directly or via a user attaching a not-yet-catalogued skill name) |
+
+Allowlisted routes (shared by both layers): `GET /api/jobs`, `/api/jobs/search`, `/api/jobs/{id}`,
+`/api/jobs/company/{companyId}`, `/api/companies`, `/api/companies/{id}`,
+`/api/companies/{id}/recruiters`, `/api/users/skills`.
+
+---
+
+## External Job Import Sources
+
+`job_service` imports listings from external job boards on a scheduler (`adzuna.import-interval-ms`,
+default 6h), one `ExternalJobProvider` implementation per source under `external/`, each behind its own
+Resilience4j circuit breaker so one failing provider never blocks the others:
+
+| Source | Key required? | Notes |
+|---|---|---|
+| Adzuna | Yes (`ADZUNA_APP_ID`/`ADZUNA_APP_KEY`) | |
+| Findwork | Yes (`FINDWORK_API_KEY`) | |
+| JobDataLake | Yes (`JOBDATALAKE_API_KEY`) | |
+| Himalayas, Arbeitnow, AI Dev Jobs, AI Jobs Co, Freehire | No | |
+| Remotive | No | Unpaginated; terms ask for ≤4 calls/day, which the 6h scheduler matches exactly |
+| Jobicy | No | Unpaginated; `count`/`geo`/`industry`/`tag` filters available |
+
+Providers without a key simply no-op (return an empty page) until one is supplied via the env vars above.
 
 ---
 

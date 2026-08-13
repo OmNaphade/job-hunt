@@ -2,6 +2,7 @@ package org.omnaphade.user_service.service;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.omnaphade.user_service.config.CacheConfig;
 import org.omnaphade.user_service.dtos.ProfileCreateDTO;
 import org.omnaphade.user_service.dtos.ProfileResponseDTO;
 import org.omnaphade.user_service.dtos.SkillDTO;
@@ -18,6 +19,8 @@ import org.omnaphade.user_service.repository.SkillRepository;
 import org.omnaphade.user_service.repository.UserRepository;
 import org.omnaphade.user_service.repository.UserSkillRepository;
 import org.omnaphade.user_service.storage.FileStorageService;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -124,6 +127,7 @@ public class UserServiceImpl implements IUserService {
     }
 
     @Override
+    @CacheEvict(value = CacheConfig.SKILLS_ALL, allEntries = true)
     public SkillDTO addSkillToUserByName(Long userId, String skillName) {
         Skill skill = skillRepository.findByNameIgnoreCase(skillName)
                 .orElseGet(() -> {
@@ -156,11 +160,13 @@ public class UserServiceImpl implements IUserService {
     }
 
     @Override
+    @Cacheable(value = CacheConfig.SKILLS_ALL)
     public List<SkillDTO> getAllSkills() {
         return skillRepository.findAll().stream().map(SkillMapper::toDTO).toList();
     }
 
     @Override
+    @CacheEvict(value = CacheConfig.SKILLS_ALL, allEntries = true)
     public SkillDTO createSkill(String name) {
         Skill skill = skillRepository.findByNameIgnoreCase(name).orElseGet(() -> {
             Skill s = new Skill();
