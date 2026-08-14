@@ -15,4 +15,5 @@ public class ApplicationResponseDTO {
     private String status;
     private LocalDateTime appliedAt;
     private LocalDateTime updatedAt;
+    private String resumeUrl;
 }

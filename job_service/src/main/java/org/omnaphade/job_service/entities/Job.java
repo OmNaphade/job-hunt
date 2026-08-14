@@ -5,7 +5,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "jobs")
+@Table(name = "jobs", uniqueConstraints = @UniqueConstraint(name = "uk_jobs_source_external_id", columnNames = {"source", "externalId"}))
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -42,9 +42,23 @@ public class Job {
 
     private LocalDateTime createdAt;
 
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private JobSource source = JobSource.RECRUITER;
+
+    /** Provider-assigned id for imported jobs (e.g. Adzuna's job id). Null for recruiter-posted jobs. */
+    private String externalId;
+
+    /** Link back to the original listing. Null for recruiter-posted jobs. */
+    private String externalUrl;
+
+    /** Employer name for imported jobs, which have no real {@link #companyId}. Null for recruiter-posted jobs. */
+    private String companyName;
+
     @PrePersist
     public void prePersist() {
         createdAt = LocalDateTime.now();
         if (status == null) status = JobStatus.OPEN;
+        if (source == null) source = JobSource.RECRUITER;
     }
 }

@@ -20,17 +20,19 @@
 3. [Microservices Detail](#microservices-detail)
 4. [Service Communication](#service-communication)
 5. [Security Model](#security-model)
-6. [API Reference](#api-reference)
+6. [Caching](#caching)
+7. [External Job Import Sources](#external-job-import-sources)
+8. [API Reference](#api-reference)
    - [Auth Service](#1-auth-service-8081)
    - [User/Profile Service](#2-userprofile-service-8082)
    - [Job Service](#3-job-service-8083)
    - [Company Service](#4-company-service-8084)
    - [Application Service](#5-application-service-8085)
    - [Notification Service](#6-notification-service-8086)
-7. [Event-Driven Flows](#event-driven-flows)
-8. [Monitoring & Observability](#monitoring--observability)
-9. [Error Handling](#error-handling)
-10. [User Flows](#user-flows)
+9. [Event-Driven Flows](#event-driven-flows)
+10. [Monitoring & Observability](#monitoring--observability)
+11. [Error Handling](#error-handling)
+12. [User Flows](#user-flows)
 
 ---
 
@@ -277,8 +279,17 @@ POST /api/auth/logout  → refreshToken deleted from DB (invalidated)
 ### Authorization Layers
 ```
 Layer 1: API Gateway JwtAuthFilter
-  → Rejects requests with invalid/missing JWT (except /register, /login, /refresh)
+  → Rejects requests with invalid/missing JWT (except /api/auth/register, /api/auth/login,
+    /api/auth/refresh, /actuator/health, /actuator/info, /actuator/prometheus,
+    and GET /api/users/{id}/avatar — the last one is a narrow exception so the frontend can
+    load avatars via a plain <img src>, which cannot send an Authorization header)
   → All 6 business services are behind this filter in production
+  → IMPORTANT: this gateway-level allowlist is independent of each service's own SecurityConfig.
+    Endpoints documented below as "Public" (e.g. GET /api/jobs, GET /api/companies) are only
+    public at the per-service level (Layer 2) — a request through the gateway without a valid
+    JWT is still rejected here at Layer 1 with a generic 401, before it ever reaches that service.
+    Hitting a service directly on its own port (bypassing the gateway) does honor its own
+    permitAll rules.
 
 Layer 2: Per-service JwtAuthFilter (Spring Security)
   → Validates JWT signature, sets Authentication in SecurityContext
@@ -323,8 +334,59 @@ Limits are configurable via `rate-limit.login.limit`, `rate-limit.login.refresh-
 | POST /api/applications | ✅ | ❌ | ❌ |
 | PATCH /api/applications/{id}/status | ❌ | ✅ | ✅ |
 | PATCH /api/applications/{id}/withdraw | ✅ | ❌ | ❌ |
+| POST/DELETE /api/jobs/{id}/save | ✅ | ❌ | ❌ |
+| GET /api/jobs/saved | ✅ | ❌ | ❌ |
+| POST /api/applications/{id}/resume (own) | ✅ | ❌ | ❌ |
+| GET /api/applications/{id}/resume (own or reviewer) | ✅ | ✅ | ✅ |
+| POST /api/users/{id}/avatar | ✅ | ✅ | ✅ |
 | GET /api/notifications | ✅ | ✅ | ✅ |
 | PATCH /api/notifications/read-all | ✅ | ✅ | ✅ |
+
+---
+
+## Caching
+
+Two complementary layers, both scoped to public, non-per-user GET routes only (saved jobs, profile, and
+other authorization-sensitive reads are never cached, to avoid staleness/leakage across users):
+
+**Gateway HTTP caching** (`api_gateway`, `filter.CacheControlFilter` + `filter.ScopedEtagFilter`) — adds
+`Cache-Control: public, max-age=60, must-revalidate` and a weak `ETag` to successful (2xx) GET responses
+on the allowlist below (`filter.HttpCachePaths`). A client sending back `If-None-Match` on an unchanged
+resource gets a bodyless `304 Not Modified`. `max-age` is configurable via `HTTP_CACHE_MAX_AGE_SECONDS`.
+
+**Service-level query caching** (Redis, `@Cacheable`/`@CacheEvict` in each service's `*ServiceImpl`,
+configured in `config.CacheConfig`) — caches the actual DB read, evicted on the corresponding writes:
+
+| Service | Cache name(s) | Backing method(s) | TTL | Evicted on |
+|---|---|---|---|---|
+| job_service | `jobs-list`, `jobs-search`, `jobs-by-company` | `getAllJobs`, `searchJobs`, `getJobsByCompany` | 2 min | any job create/update/status-change/delete, and every scheduled external import |
+| job_service | `jobs-by-id` | `getJobById` | 5 min | update/delete of that job |
+| company_service | `companies-list`, `company-recruiters` | `getAllCompanies`, `getRecruiters` | 5 min | company/recruiter create/update/delete |
+| company_service | `companies-by-id` | `getCompanyById` | 10 min | update/delete of that company |
+| user_service | `skills-all` | `getAllSkills` | 15 min | new skill added (directly or via a user attaching a not-yet-catalogued skill name) |
+
+Allowlisted routes (shared by both layers): `GET /api/jobs`, `/api/jobs/search`, `/api/jobs/{id}`,
+`/api/jobs/company/{companyId}`, `/api/companies`, `/api/companies/{id}`,
+`/api/companies/{id}/recruiters`, `/api/users/skills`.
+
+---
+
+## External Job Import Sources
+
+`job_service` imports listings from external job boards on a scheduler (`adzuna.import-interval-ms`,
+default 6h), one `ExternalJobProvider` implementation per source under `external/`, each behind its own
+Resilience4j circuit breaker so one failing provider never blocks the others:
+
+| Source | Key required? | Notes |
+|---|---|---|
+| Adzuna | Yes (`ADZUNA_APP_ID`/`ADZUNA_APP_KEY`) | |
+| Findwork | Yes (`FINDWORK_API_KEY`) | |
+| JobDataLake | Yes (`JOBDATALAKE_API_KEY`) | |
+| Himalayas, Arbeitnow, AI Dev Jobs, AI Jobs Co, Freehire | No | |
+| Remotive | No | Unpaginated; terms ask for ≤4 calls/day, which the 6h scheduler matches exactly |
+| Jobicy | No | Unpaginated; `count`/`geo`/`industry`/`tag` filters available |
+
+Providers without a key simply no-op (return an empty page) until one is supplied via the env vars above.
 
 ---
 
@@ -448,6 +510,32 @@ Errors: `401` current password wrong · `400` validation failed
 
 ---
 
+### POST /api/auth/password-reset/request — Public
+```json
+// Request
+{ "email": "alice@example.com" }
+// Response: 204 No Content
+```
+Always returns `204` whether or not the email exists (deliberately non-enumerating, so callers can't
+probe for registered accounts). On a match, a reset token (`UUID.UUID`, SHA-256-hashed at rest, 30-minute
+expiry, single-use) is generated and any prior unused tokens for that user are deleted. **No email/SMS
+integration is wired up** — the raw token is only written to the `auth_service` application log
+(`Password reset token for <email>: <token>`); wire up real delivery before using this in production.
+Frontend flow: `AuthPage` → "Forgot password?".
+
+---
+
+### POST /api/auth/password-reset/confirm — Public
+```json
+// Request
+{ "token": "<raw token from the log>", "newPassword": "NewPass456!" }  // newPassword min 6 chars
+// Response: 204 No Content
+```
+On success, all of the user's refresh tokens are revoked (forces re-login everywhere).
+Errors: `400` invalid, expired, or already-used token
+
+---
+
 ### DELETE /api/auth/users/{userId} 🔒 ADMIN only
 Response: `204 No Content`. Errors: `403` not admin · `404` not found
 
@@ -533,6 +621,19 @@ Returns all skills in the system. Response: array of `{id, name}`.
 
 ### GET /api/users 🔒 — All Profiles (admin use)
 Response: array of profile objects.
+
+---
+
+### POST /api/users/{userId}/avatar 🔒 — Upload Avatar
+Multipart form upload (`file` field). Accepts `image/png`, `image/jpeg`, `image/webp`, max 5MB. Stored on local
+disk (`app.storage.upload-dir`, volume-mounted in Docker). Response: updated profile object with `avatarUrl` set.
+Errors: `400` missing/invalid file or oversized · `404` profile not found
+
+---
+
+### GET /api/users/{userId}/avatar — Public
+Streams the stored avatar image (`Content-Disposition: inline`) so it can be used directly as an `<img src>`.
+Errors: `404` no avatar uploaded / profile not found
 
 ---
 
@@ -627,6 +728,32 @@ Response: updated job.
 
 ### DELETE /api/jobs/{id} 🔒 RECRUITER | ADMIN
 Deletes job and all associated `job_skills`. Response: `204 No Content`
+
+---
+
+### POST /api/jobs/{id}/save 🔒 JOB_SEEKER — Save/Bookmark a Job
+Response: `201 Created`, empty body. Errors: `404` job not found · `409` already saved
+
+---
+
+### DELETE /api/jobs/{id}/save 🔒 JOB_SEEKER — Unsave a Job
+Response: `204 No Content`. Errors: `404` not currently saved
+
+---
+
+### GET /api/jobs/saved 🔒 JOB_SEEKER — List Saved Jobs
+| Param | Type | Notes |
+|---|---|---|
+| `page` | int | `0` (default) |
+| `size` | int | `20` (default) |
+
+Response: `Page<Job>`, sorted by most-recently-saved first.
+
+---
+
+### GET /api/jobs/saved/ids 🔒 JOB_SEEKER — List Saved Job IDs
+Lightweight endpoint for hydrating bookmark state client-side without fetching full job payloads.
+Response: `[5, 12, 34]`
 
 ---
 
@@ -762,6 +889,20 @@ Response: updated application. Errors: `400` invalid transition
 ### PATCH /api/applications/{id}/withdraw 🔒 JOB_SEEKER
 Can only withdraw own applications. Cannot withdraw after `HIRED`.  
 Response: `204 No Content`. Errors: `400` not owner or already hired.
+
+---
+
+### POST /api/applications/{id}/resume 🔒 JOB_SEEKER (owner only) — Upload Resume
+Multipart form upload (`file` field). Accepts `application/pdf`, `application/msword`,
+`application/vnd.openxmlformats-officedocument.wordprocessingml.document`, max 5MB. Stored on local disk
+(`app.storage.upload-dir`, volume-mounted in Docker). Response: updated application object with `resumeUrl` set.
+Errors: `400` missing/invalid file type or oversized · `403` not the application owner · `404` application not found
+
+---
+
+### GET /api/applications/{id}/resume 🔒 Owner or RECRUITER | ADMIN — Download Resume
+Streams the stored resume file (`Content-Disposition: attachment`).
+Errors: `403` not the owner and not a recruiter/admin · `404` no resume uploaded / application not found
 
 ---
 

@@ -15,6 +15,19 @@ function toneClasses(tone) {
   }
 }
 
+function toneIcon(tone) {
+  switch (tone) {
+    case 'success':
+      return '✓'
+    case 'error':
+      return '⚠'
+    case 'warning':
+      return '!'
+    default:
+      return 'i'
+  }
+}
+
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([])
 
@@ -40,11 +53,14 @@ export function ToastProvider({ children }) {
         {toasts.map((toast) => (
           <output
             key={toast.id}
-            className={`pointer-events-auto rounded-xl border px-3 py-2 text-sm font-semibold shadow-lg toast-in ${toneClasses(toast.tone)}`}
+            className={`pointer-events-auto rounded-xl border px-3 py-2.5 text-sm font-semibold shadow-lg shadow-slate-900/10 toast-in ${toneClasses(toast.tone)}`}
             aria-live="polite"
           >
-            <div className="flex items-start justify-between gap-3">
-              <p>{toast.message}</p>
+            <div className="flex items-start gap-2.5">
+              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-black/5 text-xs">
+                {toneIcon(toast.tone)}
+              </span>
+              <p className="flex-1">{toast.message}</p>
               <button
                 type="button"
                 onClick={() => removeToast(toast.id)}

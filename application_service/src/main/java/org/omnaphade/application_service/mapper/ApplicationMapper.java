@@ -15,6 +15,8 @@ public class ApplicationMapper {
         dto.setUserId(application.getUserId());
         dto.setStatus(application.getStatus().name());
         dto.setAppliedAt(application.getAppliedAt());
+        dto.setUpdatedAt(application.getUpdatedAt());
+        dto.setResumeUrl(application.getResumeUrl());
 
         return dto;
     }

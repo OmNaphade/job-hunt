@@ -13,5 +13,6 @@ public class ProfileResponseDTO {
     private String summary;
     private int experienceYears;
     private String currentLocation;
+    private String avatarUrl;
 
 }

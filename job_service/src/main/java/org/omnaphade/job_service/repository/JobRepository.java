@@ -1,6 +1,7 @@
 package org.omnaphade.job_service.repository;
 
 import org.omnaphade.job_service.entities.Job;
+import org.omnaphade.job_service.entities.JobSource;
 import org.omnaphade.job_service.entities.JobStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -9,11 +10,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface JobRepository extends JpaRepository<Job, Long> {
     List<Job> findByStatus(JobStatus status);
        Page<Job> findByCompanyId(Long companyId, Pageable pageable);
     List<Job> findByCreatedBy(Long createdBy);
+    Optional<Job> findBySourceAndExternalId(JobSource source, String externalId);
 
     @Query("SELECT j FROM Job j WHERE j.status = :status AND " +
            "(:keyword IS NULL OR LOWER(j.title) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR LOWER(j.description) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) AND " +

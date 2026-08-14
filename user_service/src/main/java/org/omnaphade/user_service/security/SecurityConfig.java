@@ -21,9 +21,14 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
+                // Spring Security's default `Cache-Control: no-cache, no-store, ...` header writer would
+                // otherwise get proxied straight through the gateway and clobber the deliberate public
+                // caching headers CacheControlFilter/ScopedEtagFilter add there for the read-only GETs.
+                .headers(headers -> headers.cacheControl(cache -> cache.disable()))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/users/*/profile").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/users/*/avatar").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info", "/actuator/prometheus").permitAll()
                         .anyRequest().authenticated()
                 )

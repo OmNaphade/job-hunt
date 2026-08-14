@@ -2,8 +2,26 @@ import { useState } from 'react'
 import SectionCard from '../components/SectionCard'
 import { ErrorMessage, SuccessMessage } from '../components/Message'
 import { EmptyState, ListSkeleton } from '../components/StateBlocks'
+import { useConfirm } from '../components/ConfirmDialogProvider'
 import { useAuth } from '../context/AuthContext'
+import { useJobAlertPreference } from '../hooks/useJobAlertPreference'
 import { api, getErrorMessage } from '../lib/api'
+
+function Switch({ checked, onChange, label }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      data-on={checked}
+      onClick={() => onChange(!checked)}
+      className="switch"
+    >
+      <span className="switch-thumb" />
+    </button>
+  )
+}
 
 const profileDefault = {
   headline: '',
@@ -14,8 +32,12 @@ const profileDefault = {
 
 export default function ProfilePage() {
   const { user, role } = useAuth()
+  const confirm = useConfirm()
   const isAdmin = role === 'ADMIN'
   const [profile, setProfile] = useState(profileDefault)
+  const [avatarFile, setAvatarFile] = useState(null)
+  const [avatarVersion, setAvatarVersion] = useState(0)
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
   const [skills, setSkills] = useState([])
   const [skillName, setSkillName] = useState('')
   const [skillIdToRemove, setSkillIdToRemove] = useState('')
@@ -33,6 +55,12 @@ export default function ProfilePage() {
   const [isLoadingProfiles, setIsLoadingProfiles] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+
+  const [settingsCurrentPassword, setSettingsCurrentPassword] = useState('')
+  const [settingsNewPassword, setSettingsNewPassword] = useState('')
+  const [settingsConfirmPassword, setSettingsConfirmPassword] = useState('')
+  const [newEmail, setNewEmail] = useState('')
+  const [jobAlertsEnabled, setJobAlertsEnabled] = useJobAlertPreference()
 
   async function loadProfile() {
     if (!user?.id) return
@@ -69,6 +97,27 @@ export default function ProfilePage() {
     }
   }
 
+  async function uploadAvatar(event) {
+    event.preventDefault()
+    setError('')
+    setSuccess('')
+    if (!user?.id || !avatarFile) return
+
+    try {
+      const formData = new FormData()
+      formData.append('file', avatarFile)
+      await api.post(`/api/users/${user.id}/avatar`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      setSuccess('Avatar uploaded')
+      setAvatarFile(null)
+      setAvatarLoadFailed(false)
+      setAvatarVersion((prev) => prev + 1)
+    } catch (err) {
+      setError(getErrorMessage(err))
+    }
+  }
+
   async function addSkill(event) {
     event.preventDefault()
     setError('')
@@ -90,6 +139,13 @@ export default function ProfilePage() {
     setError('')
     setSuccess('')
     if (!user?.id || !skillIdToRemove) return
+
+    const confirmed = await confirm({
+      title: 'Remove this skill?',
+      message: `This removes skill #${skillIdToRemove} from your profile.`,
+      confirmLabel: 'Remove skill',
+    })
+    if (!confirmed) return
 
     try {
       await api.delete(`/api/users/${user.id}/skills/${skillIdToRemove}`)
@@ -160,6 +216,29 @@ export default function ProfilePage() {
     }
   }
 
+  async function updateMyPassword(event) {
+    event.preventDefault()
+    setError('')
+    setSuccess('')
+    if (!user?.id) return
+    if (settingsNewPassword !== settingsConfirmPassword) {
+      setError('New password and confirmation do not match')
+      return
+    }
+    try {
+      await api.put(`/api/auth/users/${user.id}/password`, {
+        currentPassword: settingsCurrentPassword,
+        newPassword: settingsNewPassword,
+      })
+      setSuccess('Password updated')
+      setSettingsCurrentPassword('')
+      setSettingsNewPassword('')
+      setSettingsConfirmPassword('')
+    } catch (err) {
+      setError(getErrorMessage(err))
+    }
+  }
+
   async function updatePassword(event) {
     event.preventDefault()
     setError('')
@@ -186,6 +265,12 @@ export default function ProfilePage() {
     event.preventDefault()
     setError('')
     setSuccess('')
+    const confirmed = await confirm({
+      title: `Delete user account #${deleteUserId}?`,
+      message: 'This permanently deletes the auth account. It cannot be undone, and the user will lose access immediately.',
+      confirmLabel: 'Delete account',
+    })
+    if (!confirmed) return
     try {
       await api.delete(`/api/auth/users/${deleteUserId}`)
       setSuccess('User deleted')
@@ -204,7 +289,7 @@ export default function ProfilePage() {
           <button
             type="button"
             onClick={loadProfile}
-            className="rounded-xl bg-cyan-600 px-3 py-2 text-sm font-bold text-white hover:bg-cyan-700"
+            className="btn btn-accent btn-sm"
           >
             Load My Profile
           </button>
@@ -213,15 +298,46 @@ export default function ProfilePage() {
         <ErrorMessage text={error} />
         <SuccessMessage text={success} />
 
+        <div className="mt-4 flex items-center gap-4">
+          {user?.id && !avatarLoadFailed ? (
+            <img
+              key={avatarVersion}
+              src={`${api.defaults.baseURL}/api/users/${user.id}/avatar?v=${avatarVersion}`}
+              alt="Profile avatar"
+              onError={() => setAvatarLoadFailed(true)}
+              className="h-16 w-16 rounded-full border border-slate-200 object-cover"
+            />
+          ) : (
+            <div className="flex h-16 w-16 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-xs text-slate-500">
+              No avatar
+            </div>
+          )}
+          <form className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center" onSubmit={uploadAvatar}>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(event) => setAvatarFile(event.target.files?.[0] || null)}
+              className="input flex-1 text-sm"
+            />
+            <button
+              type="submit"
+              disabled={!avatarFile}
+              className="btn btn-dark"
+            >
+              Upload Avatar
+            </button>
+          </form>
+        </div>
+
         <form className="mt-4 grid gap-3" onSubmit={saveProfile}>
           <input
-            className="rounded-xl border border-slate-300 px-3 py-2"
+            className="input"
             placeholder="Headline"
             value={profile.headline || ''}
             onChange={(event) => setProfile((prev) => ({ ...prev, headline: event.target.value }))}
           />
           <textarea
-            className="rounded-xl border border-slate-300 px-3 py-2"
+            className="input"
             placeholder="Summary"
             rows={4}
             value={profile.summary || ''}
@@ -229,7 +345,7 @@ export default function ProfilePage() {
           />
           <div className="grid gap-3 md:grid-cols-2">
             <input
-              className="rounded-xl border border-slate-300 px-3 py-2"
+              className="input"
               placeholder="Years of experience"
               type="number"
               value={profile.experienceYears || 0}
@@ -238,7 +354,7 @@ export default function ProfilePage() {
               }
             />
             <input
-              className="rounded-xl border border-slate-300 px-3 py-2"
+              className="input"
               placeholder="Current location"
               value={profile.currentLocation || ''}
               onChange={(event) =>
@@ -248,24 +364,91 @@ export default function ProfilePage() {
           </div>
           <button
             type="submit"
-            className="rounded-xl bg-slate-900 px-4 py-2 font-bold text-white hover:bg-slate-700"
+            className="btn btn-dark"
           >
             Save Profile
           </button>
         </form>
       </SectionCard>
 
+      <SectionCard id="settings" title="Account Settings" subtitle="Manage your login, contact details, and notification preferences.">
+        <div className="grid gap-6 lg:grid-cols-2">
+          <form className="grid gap-3" onSubmit={updateMyPassword}>
+            <p className="text-sm font-semibold text-slate-700">Change password</p>
+            <input
+              className="input"
+              type="password"
+              placeholder="Current password"
+              autoComplete="current-password"
+              value={settingsCurrentPassword}
+              onChange={(event) => setSettingsCurrentPassword(event.target.value)}
+            />
+            <input
+              className="input"
+              type="password"
+              placeholder="New password"
+              autoComplete="new-password"
+              value={settingsNewPassword}
+              onChange={(event) => setSettingsNewPassword(event.target.value)}
+            />
+            <input
+              className="input"
+              type="password"
+              placeholder="Confirm new password"
+              autoComplete="new-password"
+              value={settingsConfirmPassword}
+              onChange={(event) => setSettingsConfirmPassword(event.target.value)}
+            />
+            <button type="submit" className="btn btn-primary">
+              Update password
+            </button>
+          </form>
+
+          <div className="grid gap-3">
+            <p className="text-sm font-semibold text-slate-700">Change email</p>
+            <input
+              className="input"
+              type="email"
+              placeholder={user?.email || 'New email address'}
+              value={newEmail}
+              onChange={(event) => setNewEmail(event.target.value)}
+            />
+            <button type="button" disabled className="btn btn-secondary">
+              Update email
+            </button>
+            <p className="field-hint">
+              This system authenticates by email and doesn&rsquo;t have a separate username. Email changes
+              aren&rsquo;t wired up yet &mdash; the auth service needs a new endpoint to support it. Ask if you&rsquo;d
+              like that added.
+            </p>
+          </div>
+        </div>
+
+        <div className="my-6 border-t border-slate-100" />
+
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-slate-700">Job alert notifications</p>
+            <p className="field-hint max-w-md">
+              Hide JOB_ALERT items from your Notifications view on this device. This is a local browser
+              preference &mdash; it filters what you see here, it doesn&rsquo;t stop the server from generating them.
+            </p>
+          </div>
+          <Switch checked={jobAlertsEnabled} onChange={setJobAlertsEnabled} label="Toggle job alert notifications" />
+        </div>
+      </SectionCard>
+
       <SectionCard title="Skills Module" subtitle="Bind skills to your profile using name-based API.">
         <form className="flex flex-col gap-3 sm:flex-row" onSubmit={addSkill}>
           <input
-            className="flex-1 rounded-xl border border-slate-300 px-3 py-2"
+            className="input flex-1"
             placeholder="Add a skill (e.g. Spring Boot)"
             value={skillName}
             onChange={(event) => setSkillName(event.target.value)}
           />
           <button
             type="submit"
-            className="rounded-xl bg-emerald-600 px-4 py-2 font-bold text-white hover:bg-emerald-700"
+            className="btn btn-success"
           >
             Add Skill
           </button>
@@ -273,14 +456,14 @@ export default function ProfilePage() {
 
         <form className="mt-3 flex flex-col gap-3 sm:flex-row" onSubmit={removeSkill}>
           <input
-            className="flex-1 rounded-xl border border-slate-300 px-3 py-2"
+            className="input flex-1"
             placeholder="Remove skill by ID"
             value={skillIdToRemove}
             onChange={(event) => setSkillIdToRemove(event.target.value)}
           />
           <button
             type="submit"
-            className="rounded-xl bg-rose-500 px-4 py-2 font-bold text-white hover:bg-rose-600"
+            className="btn btn-danger"
           >
             Remove Skill
           </button>
@@ -297,7 +480,7 @@ export default function ProfilePage() {
             {skills.map((skill) => (
               <span
                 key={skill.id}
-                className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700"
+                className="badge badge-success"
               >
                 {skill.name}
               </span>
@@ -313,7 +496,7 @@ export default function ProfilePage() {
           <button
             type="button"
             onClick={loadCatalogSkills}
-            className="rounded-xl bg-cyan-600 px-3 py-2 text-sm font-bold text-white hover:bg-cyan-700"
+            className="btn btn-accent btn-sm"
           >
             Load Catalog
           </button>
@@ -321,14 +504,14 @@ export default function ProfilePage() {
       >
         <form className="mb-4 flex flex-col gap-3 sm:flex-row" onSubmit={createCatalogSkill}>
           <input
-            className="flex-1 rounded-xl border border-slate-300 px-3 py-2"
+            className="input flex-1"
             placeholder="New catalog skill"
             value={newCatalogSkill}
             onChange={(event) => setNewCatalogSkill(event.target.value)}
           />
           <button
             type="submit"
-            className="rounded-xl bg-slate-900 px-4 py-2 font-bold text-white"
+            className="btn btn-dark"
           >
             Create Skill
           </button>
@@ -344,7 +527,7 @@ export default function ProfilePage() {
             {catalogSkills.map((skill) => (
               <span
                 key={skill.id}
-                className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-sm font-semibold text-sky-700"
+                className="badge badge-info"
               >
                 {skill.id}: {skill.name}
               </span>
@@ -360,7 +543,7 @@ export default function ProfilePage() {
           <button
             type="button"
             onClick={loadAllProfiles}
-            className="rounded-xl bg-cyan-600 px-3 py-2 text-sm font-bold text-white hover:bg-cyan-700"
+            className="btn btn-accent btn-sm"
           >
             Load Profiles
           </button>
@@ -375,7 +558,7 @@ export default function ProfilePage() {
         {!isLoadingProfiles && allProfiles.length > 0 ? (
           <div className="grid gap-3 md:grid-cols-2">
             {allProfiles.map((item) => (
-              <article key={item.id} className="rounded-xl border border-slate-200 p-3">
+              <article key={item.id} className="item-card-compact">
                 <p className="font-bold text-slate-900">User #{item.userId}</p>
                 <p className="text-sm text-slate-600">{item.headline || 'No headline'}</p>
                 <p className="text-xs text-slate-500">{item.currentLocation || 'Unknown location'}</p>
@@ -391,7 +574,7 @@ export default function ProfilePage() {
             <p className="text-sm font-semibold text-slate-700">GET /api/auth/users/{'{id}'}</p>
             {isAdmin ? (
               <input
-                className="rounded-xl border border-slate-300 px-3 py-2"
+                className="input"
                 placeholder="User ID"
                 value={authLookupId}
                 onChange={(event) => setAuthLookupId(event.target.value)}
@@ -401,7 +584,7 @@ export default function ProfilePage() {
                 Lookup is scoped to your own user ID.
               </div>
             )}
-            <button type="submit" className="rounded-xl bg-slate-900 px-4 py-2 font-bold text-white">
+            <button type="submit" className="btn btn-dark">
               Lookup
             </button>
             {authLookupResult ? (
@@ -415,7 +598,7 @@ export default function ProfilePage() {
             <p className="text-sm font-semibold text-slate-700">PUT /api/auth/users/{'{id}'}/password</p>
             {isAdmin ? (
               <input
-                className="rounded-xl border border-slate-300 px-3 py-2"
+                className="input"
                 placeholder="Target User ID"
                 value={passwordTargetId}
                 onChange={(event) => setPasswordTargetId(event.target.value)}
@@ -426,20 +609,20 @@ export default function ProfilePage() {
               </div>
             )}
             <input
-              className="rounded-xl border border-slate-300 px-3 py-2"
+              className="input"
               type="password"
               placeholder="Current password"
               value={currentPassword}
               onChange={(event) => setCurrentPassword(event.target.value)}
             />
             <input
-              className="rounded-xl border border-slate-300 px-3 py-2"
+              className="input"
               type="password"
               placeholder="New password"
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
             />
-            <button type="submit" className="rounded-xl bg-amber-500 px-4 py-2 font-bold text-amber-950">
+            <button type="submit" className="btn btn-warning">
               Update Password
             </button>
           </form>
@@ -448,17 +631,17 @@ export default function ProfilePage() {
             <form className="grid gap-3" onSubmit={deleteAuthUser}>
               <p className="text-sm font-semibold text-slate-700">DELETE /api/auth/users/{'{id}'}</p>
               <input
-                className="rounded-xl border border-slate-300 px-3 py-2"
+                className="input"
                 placeholder="User ID"
                 value={deleteUserId}
                 onChange={(event) => setDeleteUserId(event.target.value)}
               />
-              <button type="submit" className="rounded-xl bg-rose-500 px-4 py-2 font-bold text-white">
+              <button type="submit" className="btn btn-danger">
                 Delete User
               </button>
             </form>
           ) : (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+            <div className="item-card-compact bg-slate-50 text-sm text-slate-600">
               Admin-only user deletion endpoint is available when signed in as ADMIN.
             </div>
           )}

@@ -1,9 +1,12 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import SectionCard from '../components/SectionCard'
 import { ErrorMessage, SuccessMessage } from '../components/Message'
 import { EmptyState, ListSkeleton } from '../components/StateBlocks'
+import { useConfirm } from '../components/ConfirmDialogProvider'
 import { useAuth } from '../context/AuthContext'
+import { useJobAlertPreference } from '../hooks/useJobAlertPreference'
 import { api, getErrorMessage } from '../lib/api'
 
 function asNotificationList(payload) {
@@ -14,6 +17,7 @@ function asNotificationList(payload) {
 
 export default function NotificationsPage() {
   const { role } = useAuth()
+  const confirm = useConfirm()
   const [createUserId, setCreateUserId] = useState('')
   const [createType, setCreateType] = useState('APPLICATION_UPDATE')
   const [createMessage, setCreateMessage] = useState('')
@@ -26,6 +30,7 @@ export default function NotificationsPage() {
   const [success, setSuccess] = useState('')
   const queryClient = useQueryClient()
   const canManageNotifications = role === 'ADMIN' || role === 'RECRUITER'
+  const [jobAlertsEnabled] = useJobAlertPreference()
 
   const notificationsQuery = useQuery({
     queryKey: ['notifications', sourceFilter],
@@ -149,11 +154,18 @@ export default function NotificationsPage() {
     event.preventDefault()
     setError('')
     setSuccess('')
+    const confirmed = await confirm({
+      title: `Delete notification #${deleteId}?`,
+      message: 'This permanently removes the notification. This cannot be undone.',
+      confirmLabel: 'Delete notification',
+    })
+    if (!confirmed) return
     deleteMutation.mutate(deleteId)
   }
 
   const filteredNotifications = notifications
     .filter((item) => {
+      if (!jobAlertsEnabled && item.type === 'JOB_ALERT') return false
       if (statusFilter !== 'ALL' && item.status !== statusFilter) return false
       if (typeFilter !== 'ALL' && item.type !== typeFilter) return false
       return true
@@ -164,6 +176,10 @@ export default function NotificationsPage() {
       if (sortOrder === 'OLDEST') return aTime - bTime
       return bTime - aTime
     })
+
+  const hiddenJobAlertCount = jobAlertsEnabled
+    ? 0
+    : notifications.filter((item) => item.type === 'JOB_ALERT').length
 
   const notificationTypes = Array.from(new Set(notifications.map((item) => item.type).filter(Boolean)))
 
@@ -180,14 +196,14 @@ export default function NotificationsPage() {
                 setSourceFilter('ALL')
                 queryClient.invalidateQueries({ queryKey: ['notifications'] })
               }}
-              className="rounded-xl bg-cyan-600 px-3 py-2 text-sm font-bold text-white hover:bg-cyan-700"
+              className="btn btn-accent btn-sm"
             >
               Load Notifications
             </button>
             <button
               type="button"
               onClick={() => queryClient.invalidateQueries({ queryKey: ['notifications', 'unreadCount'] })}
-              className="rounded-xl bg-amber-500 px-3 py-2 text-sm font-bold text-amber-950"
+              className="btn btn-warning btn-sm"
             >
               Unread Count
             </button>
@@ -197,14 +213,14 @@ export default function NotificationsPage() {
                 setSourceFilter('UNREAD')
                 queryClient.invalidateQueries({ queryKey: ['notifications'] })
               }}
-              className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-bold text-white"
+              className="btn btn-dark btn-sm"
             >
               Unread List
             </button>
             <button
               type="button"
               onClick={bulkMarkRead}
-              className="rounded-xl bg-emerald-700 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-800"
+              className="btn btn-success btn-sm"
             >
               Bulk Mark Read
             </button>
@@ -215,14 +231,14 @@ export default function NotificationsPage() {
         <SuccessMessage text={success} />
 
         {typeof unreadCount === 'number' ? (
-          <p className="mt-4 inline-flex rounded-full bg-slate-900 px-3 py-1 text-sm font-bold text-white">
+          <p className="mt-4 badge badge-dark">
             Unread: {unreadCount}
           </p>
         ) : null}
 
         <div className="mt-4 grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-3">
           <select
-            className="rounded-xl border border-slate-300 px-3 py-2"
+            className="input"
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
           >
@@ -231,7 +247,7 @@ export default function NotificationsPage() {
             <option value="READ">READ</option>
           </select>
           <select
-            className="rounded-xl border border-slate-300 px-3 py-2"
+            className="input"
             value={typeFilter}
             onChange={(event) => setTypeFilter(event.target.value)}
           >
@@ -243,7 +259,7 @@ export default function NotificationsPage() {
             ))}
           </select>
           <select
-            className="rounded-xl border border-slate-300 px-3 py-2"
+            className="input"
             value={sortOrder}
             onChange={(event) => setSortOrder(event.target.value)}
           >
@@ -251,6 +267,17 @@ export default function NotificationsPage() {
             <option value="OLDEST">Oldest First</option>
           </select>
         </div>
+
+        {hiddenJobAlertCount > 0 ? (
+          <p className="field-hint mt-3">
+            {hiddenJobAlertCount} job alert{hiddenJobAlertCount === 1 ? '' : 's'} hidden by your device
+            preference &mdash;{' '}
+            <Link to="/profile#settings" className="font-semibold text-indigo-600 hover:underline">
+              manage in Account Settings
+            </Link>
+            .
+          </p>
+        ) : null}
 
         {isLoadingNotifications ? <ListSkeleton rows={3} /> : null}
 
@@ -264,7 +291,7 @@ export default function NotificationsPage() {
         {!isLoadingNotifications && filteredNotifications.length > 0 ? (
           <div className="mt-4 grid gap-3">
             {filteredNotifications.map((item) => (
-              <article key={item.id} className="rounded-2xl border border-slate-200 p-4">
+              <article key={item.id} className="item-card">
                 <p className="font-bold text-slate-900">{item.type}</p>
                 <p className="mt-1 text-sm text-slate-700">{item.message}</p>
                 <p className="mt-1 text-xs text-slate-500">
@@ -276,7 +303,7 @@ export default function NotificationsPage() {
                     <button
                       type="button"
                       onClick={() => markReadMutation.mutate(item.id)}
-                      className="rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white"
+                      className="btn btn-success btn-sm"
                     >
                       Mark Read
                     </button>
@@ -289,16 +316,16 @@ export default function NotificationsPage() {
 
         {canManageNotifications ? (
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            <form className="grid gap-3 rounded-2xl border border-slate-200 p-3" onSubmit={createNotification}>
+            <form className="item-card grid gap-3" onSubmit={createNotification}>
               <p className="text-sm font-semibold text-slate-700">POST /api/notifications</p>
               <input
-                className="rounded-xl border border-slate-300 px-3 py-2"
+                className="input"
                 placeholder="Target User ID"
                 value={createUserId}
                 onChange={(event) => setCreateUserId(event.target.value)}
               />
               <select
-                className="rounded-xl border border-slate-300 px-3 py-2"
+                className="input"
                 value={createType}
                 onChange={(event) => setCreateType(event.target.value)}
               >
@@ -307,26 +334,26 @@ export default function NotificationsPage() {
                 <option value="SYSTEM">SYSTEM</option>
               </select>
               <textarea
-                className="rounded-xl border border-slate-300 px-3 py-2"
+                className="input"
                 rows={3}
                 placeholder="Notification message"
                 value={createMessage}
                 onChange={(event) => setCreateMessage(event.target.value)}
               />
-              <button type="submit" className="rounded-xl bg-emerald-600 px-4 py-2 font-bold text-white">
+              <button type="submit" className="btn btn-success">
                 Create Notification
               </button>
             </form>
 
-            <form className="grid gap-3 rounded-2xl border border-slate-200 p-3" onSubmit={deleteNotification}>
+            <form className="item-card grid gap-3" onSubmit={deleteNotification}>
               <p className="text-sm font-semibold text-slate-700">DELETE /api/notifications/{'{id}'}</p>
               <input
-                className="rounded-xl border border-slate-300 px-3 py-2"
+                className="input"
                 placeholder="Notification ID"
                 value={deleteId}
                 onChange={(event) => setDeleteId(event.target.value)}
               />
-              <button type="submit" className="rounded-xl bg-rose-500 px-4 py-2 font-bold text-white">
+              <button type="submit" className="btn btn-danger">
                 Delete Notification
               </button>
             </form>

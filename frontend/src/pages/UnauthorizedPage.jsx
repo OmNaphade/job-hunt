@@ -15,11 +15,11 @@ export default function UnauthorizedPage({ requiredRole, currentRole, reason }) 
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="tile">
               <p className="text-xs uppercase tracking-widest text-slate-500">Required Role</p>
               <p className="mt-1 text-sm font-bold text-slate-900">{requiredRole || 'N/A'}</p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="tile">
               <p className="text-xs uppercase tracking-widest text-slate-500">Your Role</p>
               <p className="mt-1 text-sm font-bold text-slate-900">{currentRole || 'UNKNOWN'}</p>
             </div>
@@ -28,13 +28,13 @@ export default function UnauthorizedPage({ requiredRole, currentRole, reason }) 
           <div className="flex flex-wrap gap-2">
             <Link
               to="/"
-              className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
+              className="btn btn-dark"
             >
               Back to Dashboard
             </Link>
             <Link
               to="/auth"
-              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+              className="btn btn-secondary"
             >
               Switch Account
             </Link>

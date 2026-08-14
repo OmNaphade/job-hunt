@@ -7,6 +7,7 @@ import CompaniesPage from './pages/CompaniesPage'
 import DashboardPage from './pages/DashboardPage'
 import JobsPage from './pages/JobsPage'
 import MonitoringPage from './pages/MonitoringPage'
+import NotFoundPage from './pages/NotFoundPage'
 import NotificationsPage from './pages/NotificationsPage'
 import ProfilePage from './pages/ProfilePage'
 import UnauthorizedPage from './pages/UnauthorizedPage'
@@ -134,7 +135,7 @@ function App() {
             </RequireRole>
           }
         />
-        <Route path="*" element={<Navigate to="/auth" replace />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </AppLayout>
   )

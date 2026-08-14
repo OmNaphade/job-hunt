@@ -273,21 +273,21 @@ export default function MonitoringPage() {
               href={ZIPKIN_URL}
               target="_blank"
               rel="noreferrer"
-              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+              className="btn btn-secondary"
             >
               Open Zipkin Traces
             </a>
             <button
               type="button"
               onClick={exportSnapshot}
-              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+              className="btn btn-secondary"
             >
               Export Snapshot
             </button>
             <button
               type="button"
               onClick={() => fetchServiceMetrics(true)}
-              className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
+              className="btn btn-dark"
             >
               Refresh Now
             </button>
@@ -298,7 +298,7 @@ export default function MonitoringPage() {
         <SuccessMessage text={success} />
 
         <div className="mt-4 grid gap-4 lg:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="tile">
             <p className="text-xs uppercase tracking-widest text-slate-500">Environment Health</p>
             <p className={`mt-2 text-xl font-black ${allUp ? 'text-emerald-700' : 'text-amber-700'}`}>
               {allUp ? 'ALL SYSTEMS UP' : 'DEGRADED'}
@@ -306,12 +306,12 @@ export default function MonitoringPage() {
             <p className="text-sm text-slate-600">{serviceMetrics.length} monitored services</p>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="tile">
             <p className="text-xs uppercase tracking-widest text-slate-500">Auto Refresh</p>
             <select
               value={autoRefreshSec}
               onChange={(e) => setAutoRefreshSec(Number(e.target.value))}
-              className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2"
+              className="input mt-2"
             >
               <option value={0}>Paused</option>
               <option value={10}>10 seconds</option>
@@ -321,7 +321,7 @@ export default function MonitoringPage() {
             </select>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="tile">
             <p className="text-xs uppercase tracking-widest text-slate-500">Widget Controls</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {Object.keys(widgets).map((key) => (
@@ -366,7 +366,7 @@ export default function MonitoringPage() {
           </div>
         </div>
 
-        <div className="mt-4 rounded-2xl border border-slate-200 p-4">
+        <div className="item-card mt-4">
           <p className="text-sm font-semibold text-slate-700">Service Scope</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {SERVICES.map((service) => (
@@ -421,14 +421,14 @@ export default function MonitoringPage() {
                       <button
                         type="button"
                         onClick={() => moveCard(m.key, 'up')}
-                        className="rounded-full border border-slate-300 bg-white px-2 py-1 text-[10px] font-bold uppercase text-slate-600"
+                        className="badge badge-neutral"
                       >
                         Up
                       </button>
                       <button
                         type="button"
                         onClick={() => moveCard(m.key, 'down')}
-                        className="rounded-full border border-slate-300 bg-white px-2 py-1 text-[10px] font-bold uppercase text-slate-600"
+                        className="badge badge-neutral"
                       >
                         Down
                       </button>
@@ -439,7 +439,7 @@ export default function MonitoringPage() {
             >
               <div className={`grid gap-3 ${layoutMode === 'compact' ? '' : 'sm:grid-cols-2'}`}>
                 {widgets.heap ? (
-                  <div className="rounded-xl border border-slate-200 p-3">
+                  <div className="item-card-compact">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs uppercase tracking-widest text-slate-500">Heap Memory</p>
                       <MetricBadge value={m.heapMb} warning={700} critical={1024} />
@@ -450,7 +450,7 @@ export default function MonitoringPage() {
                 ) : null}
 
                 {widgets.cpu ? (
-                  <div className="rounded-xl border border-slate-200 p-3">
+                  <div className="item-card-compact">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs uppercase tracking-widest text-slate-500">CPU Usage</p>
                       <MetricBadge value={m.cpuPercent} warning={60} critical={80} />
@@ -461,7 +461,7 @@ export default function MonitoringPage() {
                 ) : null}
 
                 {widgets.dbConnections ? (
-                  <div className="rounded-xl border border-slate-200 p-3">
+                  <div className="item-card-compact">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs uppercase tracking-widest text-slate-500">DB Connections</p>
                       <MetricBadge value={m.dbConnections} warning={15} critical={30} />
@@ -475,7 +475,7 @@ export default function MonitoringPage() {
                 ) : null}
 
                 {widgets.requests ? (
-                  <div className="rounded-xl border border-slate-200 p-3">
+                  <div className="item-card-compact">
                     <p className="text-xs uppercase tracking-widest text-slate-500">Request Counter</p>
                     <p className="mt-1 text-lg font-black text-slate-900">{Math.round(m.requestCount)}</p>
                     <Sparkline
@@ -506,7 +506,7 @@ export default function MonitoringPage() {
               ) : null}
 
               {widgets.rateLimiting && m.key === 'gateway' ? (
-                <div className="mt-3 rounded-xl border border-slate-200 p-3">
+                <div className="item-card-compact mt-3">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs uppercase tracking-widest text-slate-500">Rate Limit Rejections (429s)</p>
                     <MetricBadge value={m.rateLimitRejected} warning={1} critical={20} />

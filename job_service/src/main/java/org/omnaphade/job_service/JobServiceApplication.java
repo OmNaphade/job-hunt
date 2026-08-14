@@ -7,8 +7,10 @@ import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @EnableDiscoveryClient
+@EnableScheduling
 @SpringBootApplication
 @OpenAPIDefinition(info = @Info(title = "Job Service API", version = "1.0", description = "Job Listings Management"))
 @SecurityScheme(name = "bearerAuth", type = SecuritySchemeType.HTTP, scheme = "bearer", bearerFormat = "JWT")

@@ -6,10 +6,16 @@ import org.omnaphade.user_service.dtos.ProfileResponseDTO;
 import org.omnaphade.user_service.dtos.SkillDTO;
 import org.omnaphade.user_service.dtos.UserSkillDTO;
 import org.omnaphade.user_service.service.IUserService;
+import org.omnaphade.user_service.storage.FileStorageService;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 
@@ -18,9 +24,11 @@ import java.util.Map;
 public class UserController {
 
     private final IUserService userService;
+    private final FileStorageService fileStorageService;
 
-    public UserController(IUserService userService) {
+    public UserController(IUserService userService, FileStorageService fileStorageService) {
         this.userService = userService;
+        this.fileStorageService = fileStorageService;
     }
 
     @GetMapping
@@ -63,6 +71,21 @@ public class UserController {
     public void deleteSkillFromUser(@PathVariable Long userId,
                                     @PathVariable Long skillId) {
         userService.removeSkillFromUser(userId, skillId);
+    }
+
+    @PostMapping(value = "/{userId}/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ProfileResponseDTO uploadAvatar(@PathVariable Long userId, @RequestParam("file") MultipartFile file) {
+        return userService.uploadAvatar(userId, file);
+    }
+
+    @GetMapping("/{userId}/avatar")
+    public ResponseEntity<Resource> downloadAvatar(@PathVariable Long userId) {
+        String path = userService.getAvatarPath(userId);
+        Resource resource = fileStorageService.loadAsResource(path);
+        String filename = Paths.get(path).getFileName().toString();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
+                .body(resource);
     }
 
     @GetMapping("/skills")

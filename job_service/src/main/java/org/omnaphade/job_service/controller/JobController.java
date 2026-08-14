@@ -13,6 +13,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/jobs")
 @RequiredArgsConstructor
@@ -105,5 +107,38 @@ public class JobController {
         Long userId = Long.parseLong(auth.getName());
         jobService.deleteJob(id, userId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/save")
+    @PreAuthorize("hasRole('JOB_SEEKER')")
+    public ResponseEntity<Void> saveJob(@PathVariable("id") Long id, Authentication auth) {
+        Long userId = Long.parseLong(auth.getName());
+        jobService.saveJob(userId, id);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @DeleteMapping("/{id}/save")
+    @PreAuthorize("hasRole('JOB_SEEKER')")
+    public ResponseEntity<Void> unsaveJob(@PathVariable("id") Long id, Authentication auth) {
+        Long userId = Long.parseLong(auth.getName());
+        jobService.unsaveJob(userId, id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/saved")
+    @PreAuthorize("hasRole('JOB_SEEKER')")
+    public ResponseEntity<Page<JobResponseDTO>> getSavedJobs(
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            Authentication auth) {
+        Long userId = Long.parseLong(auth.getName());
+        return ResponseEntity.ok(jobService.getSavedJobs(userId, page, size));
+    }
+
+    @GetMapping("/saved/ids")
+    @PreAuthorize("hasRole('JOB_SEEKER')")
+    public ResponseEntity<List<Long>> getSavedJobIds(Authentication auth) {
+        Long userId = Long.parseLong(auth.getName());
+        return ResponseEntity.ok(jobService.getSavedJobIds(userId));
     }
 }

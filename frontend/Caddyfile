@@ -1,0 +1,21 @@
+:80 {
+	encode gzip
+
+	# Same-origin API proxy: the browser sees one origin for both the page and its
+	# API calls, so no CORS handshake is ever needed for the deployed frontend.
+	#
+	# CORE_UPSTREAM defaults to the single-host Docker-network alias so local/dev
+	# docker-compose still works unmodified; the 3-VM OCI deployment overrides it
+	# via docker-compose.edge.yml to job-portal-core's VCN-internal DNS name.
+	handle /api/* {
+		reverse_proxy {$CORE_UPSTREAM:api-gateway:8080}
+	}
+
+	# Everything else is the built SPA, with client-side routes falling back to
+	# index.html so a hard refresh on e.g. /jobs/42 doesn't 404.
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

@@ -29,6 +29,8 @@ public class Profile {
 
     private String currentLocation;
 
+    private String avatarUrl;
+
     private LocalDateTime createdAt;
 
 }

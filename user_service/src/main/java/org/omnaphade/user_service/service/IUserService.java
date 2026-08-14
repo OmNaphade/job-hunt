@@ -4,6 +4,7 @@ import org.omnaphade.user_service.dtos.ProfileCreateDTO;
 import org.omnaphade.user_service.dtos.ProfileResponseDTO;
 import org.omnaphade.user_service.dtos.SkillDTO;
 import org.omnaphade.user_service.dtos.UserSkillDTO;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -30,4 +31,8 @@ public interface IUserService {
     List<SkillDTO> getAllSkills();
 
     SkillDTO createSkill(String name);
+
+    ProfileResponseDTO uploadAvatar(Long userId, MultipartFile file);
+
+    String getAvatarPath(Long userId);
 }

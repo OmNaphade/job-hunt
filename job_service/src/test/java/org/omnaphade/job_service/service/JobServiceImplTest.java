@@ -8,9 +8,12 @@ import org.omnaphade.job_service.dtos.JobResponseDTO;
 import org.omnaphade.job_service.entities.Job;
 import org.omnaphade.job_service.entities.JobSkill;
 import org.omnaphade.job_service.entities.JobStatus;
+import org.omnaphade.job_service.entities.SavedJob;
+import org.omnaphade.job_service.exception.DuplicateResourceException;
 import org.omnaphade.job_service.exception.ResourceNotFoundException;
 import org.omnaphade.job_service.repository.JobRepository;
 import org.omnaphade.job_service.repository.JobSkillRepository;
+import org.omnaphade.job_service.repository.SavedJobRepository;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
@@ -38,6 +41,9 @@ class JobServiceImplTest {
     @Mock
     private JobSkillRepository jobSkillRepository;
 
+    @Mock
+    private SavedJobRepository savedJobRepository;
+
     @Captor
     private ArgumentCaptor<Pageable> pageableCaptor;
 
@@ -45,7 +51,7 @@ class JobServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        jobService = new JobServiceImpl(jobRepository, jobSkillRepository);
+        jobService = new JobServiceImpl(jobRepository, jobSkillRepository, savedJobRepository);
         lenient().when(jobSkillRepository.findByJobId(anyLong())).thenReturn(List.of());
     }
 
@@ -254,5 +260,84 @@ class JobServiceImplTest {
                 .isInstanceOf(ResourceNotFoundException.class);
 
         verify(jobSkillRepository, never()).deleteByJobId(anyLong());
+    }
+
+    @Test
+    void saveJob_whenJobExistsAndNotAlreadySaved_persistsSavedJob() {
+        when(jobRepository.findById(5L)).thenReturn(Optional.of(savedJob()));
+        when(savedJobRepository.existsByUserIdAndJobId(9L, 5L)).thenReturn(false);
+
+        jobService.saveJob(9L, 5L);
+
+        ArgumentCaptor<SavedJob> captor = ArgumentCaptor.forClass(SavedJob.class);
+        verify(savedJobRepository).save(captor.capture());
+        assertThat(captor.getValue().getUserId()).isEqualTo(9L);
+        assertThat(captor.getValue().getJobId()).isEqualTo(5L);
+    }
+
+    @Test
+    void saveJob_whenJobDoesNotExist_throwsResourceNotFoundException() {
+        when(jobRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> jobService.saveJob(9L, 99L))
+                .isInstanceOf(ResourceNotFoundException.class);
+
+        verify(savedJobRepository, never()).save(any(SavedJob.class));
+    }
+
+    @Test
+    void saveJob_whenAlreadySaved_throwsDuplicateResourceException() {
+        when(jobRepository.findById(5L)).thenReturn(Optional.of(savedJob()));
+        when(savedJobRepository.existsByUserIdAndJobId(9L, 5L)).thenReturn(true);
+
+        assertThatThrownBy(() -> jobService.saveJob(9L, 5L))
+                .isInstanceOf(DuplicateResourceException.class);
+
+        verify(savedJobRepository, never()).save(any(SavedJob.class));
+    }
+
+    @Test
+    void unsaveJob_whenSaved_deletesSavedJob() {
+        SavedJob existing = SavedJob.builder().id(1L).userId(9L).jobId(5L).build();
+        when(savedJobRepository.findByUserIdAndJobId(9L, 5L)).thenReturn(Optional.of(existing));
+
+        jobService.unsaveJob(9L, 5L);
+
+        verify(savedJobRepository).delete(existing);
+    }
+
+    @Test
+    void unsaveJob_whenNotSaved_throwsResourceNotFoundException() {
+        when(savedJobRepository.findByUserIdAndJobId(9L, 5L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> jobService.unsaveJob(9L, 5L))
+                .isInstanceOf(ResourceNotFoundException.class);
+
+        verify(savedJobRepository, never()).delete(any(SavedJob.class));
+    }
+
+    @Test
+    void getSavedJobs_returnsJobsForUsersSavedEntries() {
+        SavedJob entry = SavedJob.builder().id(1L).userId(9L).jobId(5L).build();
+        when(savedJobRepository.findByUserId(eq(9L), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(entry)));
+        when(jobRepository.findById(5L)).thenReturn(Optional.of(savedJob()));
+
+        Page<JobResponseDTO> result = jobService.getSavedJobs(9L, 0, 20);
+
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getContent().get(0).getId()).isEqualTo(5L);
+    }
+
+    @Test
+    void getSavedJobIds_returnsJobIdsForUser() {
+        when(savedJobRepository.findByUserId(9L)).thenReturn(List.of(
+                SavedJob.builder().id(1L).userId(9L).jobId(5L).build(),
+                SavedJob.builder().id(2L).userId(9L).jobId(7L).build()
+        ));
+
+        List<Long> result = jobService.getSavedJobIds(9L);
+
+        assertThat(result).containsExactly(5L, 7L);
     }
 }
