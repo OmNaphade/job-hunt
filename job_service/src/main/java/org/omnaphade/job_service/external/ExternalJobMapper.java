@@ -19,7 +19,7 @@ public class ExternalJobMapper {
     public static Job toNewEntity(ExternalJobDTO dto, JobSource source) {
         return Job.builder()
                 .title(dto.getTitle())
-                .description(truncate(dto.getDescription()))
+                .description(truncate(HtmlTextExtractor.toPlainText(dto.getDescription())))
                 .location(dto.getLocation())
                 .companyName(dto.getCompanyName())
                 .salaryMin(dto.getSalaryMin() != null ? dto.getSalaryMin() : 0.0)
@@ -40,7 +40,7 @@ public class ExternalJobMapper {
      */
     public static void updateExisting(Job job, ExternalJobDTO dto) {
         job.setTitle(dto.getTitle());
-        job.setDescription(truncate(dto.getDescription()));
+        job.setDescription(truncate(HtmlTextExtractor.toPlainText(dto.getDescription())));
         job.setLocation(dto.getLocation());
         job.setCompanyName(dto.getCompanyName());
         if (dto.getSalaryMin() != null) job.setSalaryMin(dto.getSalaryMin());
