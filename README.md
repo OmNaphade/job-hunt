@@ -20,8 +20,8 @@ Production-style job portal platform with microservices backend and role-based f
 - Observability: Prometheus metrics + Zipkin distributed tracing on every service, Grafana dashboards in `operations/grafana/`, k6 load tests in `performance/k6/`
 - CI: GitHub Actions (build, test, integration smoke, Docker image build) — all 7 HTTP-facing services (including `api_gateway`) run their test suites in CI, not just build
 - Code Coverage: frontend (Vitest) + backend (JaCoCo, wired via the root `pom.xml` for every module) reported to Codecov — `job_service`, `application_service`, `auth_service`, `user_service`, `company_service`, and `notification_service` all have real unit tests over their service layers; `api_gateway` covers CORS/rate-limiting; `config_server` and `service_registry` still have only the Spring Boot stub test
-- Deployment: SSH-based scripts are present but **deployment is currently inactive** (scripts are templates). See `DEPLOYMENT_SCRIPTS.md` for activation steps.
-- Full API reference and architecture notes: see [`API_DOCS.md`](./API_DOCS.md); local run-from-source walkthrough: see [`STARTUP.md`](./STARTUP.md)
+- Deployment: two documented paths. SSH-based CI scripts (`deploy-staging.sh`/`deploy-production.sh`) are present but **inactive** (templates — see `DEPLOYMENT_SCRIPTS.md`). Separately, `OCI_DEPLOYMENT_GUIDE.md` is a full from-zero walkthrough for deploying the stack across three Oracle Cloud Always Free VMs, using a split `docker-compose.core.yml` (backend, private subnet) + `docker-compose.edge.yml` (frontend, public subnet) topology instead of the single all-in-one `docker-compose.yml` used for local dev.
+- Full API reference and architecture notes: see [`API_DOCS.md`](./API_DOCS.md); local run-from-source walkthrough: see [`STARTUP.md`](./STARTUP.md); Oracle Cloud deployment walkthrough: see [`OCI_DEPLOYMENT_GUIDE.md`](./OCI_DEPLOYMENT_GUIDE.md)
 
 ## Table of Contents
 
@@ -136,10 +136,13 @@ the "Local Operations Scripts" section of [`STARTUP.md`](./STARTUP.md) for the f
 - `performance/k6/` - k6 load test scripts
 - `scripts/` - local-ops PowerShell scripts (validation, seeding, backup/restore, failure drills,
   deployment templates) — see `STARTUP.md` for the full catalog
-- `docker-compose.yml` - full local stack (Postgres, Kafka, Zipkin, all 9 services)
+- `docker-compose.yml` - full local stack (Postgres, Redis, Kafka, Zipkin, all 9 services)
+- `docker-compose.core.yml` / `docker-compose.edge.yml` - the same backend/frontend split for a multi-VM
+  cloud deployment (backend services + frontend on separate hosts) — see `OCI_DEPLOYMENT_GUIDE.md`
 - `.github/workflows/ci.yml` - CI pipeline
 - `API_DOCS.md` - full API reference and architecture notes
 - `STARTUP.md` - run-from-source guide (no Docker)
+- `OCI_DEPLOYMENT_GUIDE.md` - from-zero walkthrough for deploying to Oracle Cloud Always Free tier
 
 ## Testing
 
@@ -159,12 +162,23 @@ the "Local Operations Scripts" section of [`STARTUP.md`](./STARTUP.md) for the f
 
 ## Deployment
 
-Deployment templates exist in `scripts/deploy-staging.sh` and `scripts/deploy-production.sh` and detailed instructions are available in `DEPLOYMENT_SCRIPTS.md`.
+Two paths are documented:
 
-> Note: Deployment scripts are currently commented out and act as templates. To enable real deployments:
-> 1. Provision servers and ensure Docker is installed
-> 2. Add secrets in GitHub repo settings: `STAGING_DEPLOY_KEY`, `STAGING_HOST`, `STAGING_USER`, `PROD_DEPLOY_KEY`, `PROD_HOST`, `PROD_USER`
-> 3. Uncomment the `REAL DEPLOYMENT` block in the relevant script and adjust paths
+- **CI-driven SSH deploy (template, inactive)** — `scripts/deploy-staging.sh` and `scripts/deploy-production.sh`,
+  wired into `.github/workflows/ci.yml` as `deploy-staging`/`deploy-production` jobs. Detailed instructions
+  are in `DEPLOYMENT_SCRIPTS.md`.
+
+  > Note: the real SSH + Docker logic in both scripts is currently commented out — they print a placeholder
+  > and exit successfully so the pipeline stays green. To enable real deployments:
+  > 1. Provision servers and ensure Docker is installed
+  > 2. Add secrets in GitHub repo settings: `STAGING_DEPLOY_KEY`, `STAGING_HOST`, `STAGING_USER`, `PROD_DEPLOY_KEY`, `PROD_HOST`, `PROD_USER`
+  > 3. Uncomment the `REAL DEPLOYMENT` block in the relevant script and adjust paths
+
+- **Manual Oracle Cloud deployment (documented, self-hosted)** — [`OCI_DEPLOYMENT_GUIDE.md`](./OCI_DEPLOYMENT_GUIDE.md)
+  walks through deploying the full stack across three Oracle Cloud Always Free VMs: backend services
+  (`docker-compose.core.yml`) on a private-subnet VM, the frontend (`docker-compose.edge.yml`) on a
+  public-subnet VM acting as reverse proxy, with networking, security lists, and troubleshooting covered
+  end to end.
 
 ## Contributing
 
