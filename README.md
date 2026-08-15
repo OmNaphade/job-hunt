@@ -27,6 +27,7 @@ Production-style job portal platform with microservices backend and role-based f
 
 - [About](#about)
 - [Latest Project Details](#latest-project-details)
+- [Screenshots](#screenshots)
 - [Built With](#built-with)
 - [Getting Started](#getting-started)
 - [Usage](#usage)
@@ -40,6 +41,13 @@ Production-style job portal platform with microservices backend and role-based f
 ## About
 
 This project provides a complete hiring lifecycle system: authentication, profiles, jobs, companies, applications, and notifications behind an API Gateway. It is designed for teams that want a modular microservices backend with a modern React frontend, Docker-first local setup, and production-grade observability (metrics, tracing, dashboards) baked in rather than bolted on later.
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Login](samples/login-page.png) | ![Admin dashboard](samples/admin-dashboard.jpeg) |
+| ![Jobs](samples/jobs-page.jpeg) | ![Monitoring dashboard](samples/monitoring-page.jpeg) |
 
 ## Built With
 
