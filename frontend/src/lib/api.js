@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
 const TOKEN_KEY = 'jp_access_token'
 const REFRESH_TOKEN_KEY = 'jp_refresh_token'
 
