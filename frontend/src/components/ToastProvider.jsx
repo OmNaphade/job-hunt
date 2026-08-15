@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { generateId } from '../lib/id'
 
 const ToastContext = createContext(null)
 
@@ -36,7 +37,7 @@ export function ToastProvider({ children }) {
   }, [])
 
   const showToast = useCallback((message, tone = 'info', durationMs = 2800) => {
-    const id = crypto.randomUUID()
+    const id = generateId()
     setToasts((prev) => [...prev, { id, message, tone }])
 
     window.setTimeout(() => {

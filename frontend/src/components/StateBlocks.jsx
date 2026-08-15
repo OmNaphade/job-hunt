@@ -1,5 +1,7 @@
+import { generateId } from '../lib/id'
+
 export function ListSkeleton({ rows = 3 }) {
-  const skeletonKeys = Array.from({ length: rows }, () => crypto.randomUUID())
+  const skeletonKeys = Array.from({ length: rows }, () => generateId())
 
   return (
     <div className="mt-4 grid gap-3">
