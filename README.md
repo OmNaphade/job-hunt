@@ -20,8 +20,8 @@ Production-style job portal platform with microservices backend and role-based f
 - Observability: Prometheus metrics + Zipkin distributed tracing on every service, Grafana dashboards in `operations/grafana/`, k6 load tests in `performance/k6/`
 - CI: GitHub Actions (build, test, integration smoke, Docker image build) — all 7 HTTP-facing services (including `api_gateway`) run their test suites in CI, not just build
 - Code Coverage: frontend (Vitest) + backend (JaCoCo, wired via the root `pom.xml` for every module) reported to Codecov — `job_service`, `application_service`, `auth_service`, `user_service`, `company_service`, and `notification_service` all have real unit tests over their service layers; `api_gateway` covers CORS/rate-limiting; `config_server` and `service_registry` still have only the Spring Boot stub test
-- Deployment: two documented paths. SSH-based CI scripts (`deploy-staging.sh`/`deploy-production.sh`) are present but **inactive** (templates — see `DEPLOYMENT_SCRIPTS.md`). Separately, `OCI_DEPLOYMENT_GUIDE.md` is a full from-zero walkthrough for deploying the stack across three Oracle Cloud Always Free VMs, using a split `docker-compose.core.yml` (backend, private subnet) + `docker-compose.edge.yml` (frontend, public subnet) topology instead of the single all-in-one `docker-compose.yml` used for local dev.
-- Full API reference and architecture notes: see [`API_DOCS.md`](./API_DOCS.md); local run-from-source walkthrough: see [`STARTUP.md`](./STARTUP.md); Oracle Cloud deployment walkthrough: see [`OCI_DEPLOYMENT_GUIDE.md`](./OCI_DEPLOYMENT_GUIDE.md)
+- Deployment: three documented paths. SSH-based CI scripts (`deploy-staging.sh`/`deploy-production.sh`) are present but **inactive** (templates — see `DEPLOYMENT_SCRIPTS.md`). `OCI_DEPLOYMENT_GUIDE.md` is a full from-zero walkthrough for deploying the stack across three Oracle Cloud Always Free VMs, using a split `docker-compose.core.yml` (backend, private subnet) + `docker-compose.edge.yml` (frontend, public subnet) topology instead of the single all-in-one `docker-compose.yml` used for local dev. `AWS_DEPLOYMENT_GUIDE.md` is the single-instance alternative — one right-sized EC2 instance running the unmodified `docker-compose.yml`, with real (not free-tier) pricing, since AWS has no free tier generous enough to fit this stack.
+- Full API reference and architecture notes: see [`API_DOCS.md`](./API_DOCS.md); local run-from-source walkthrough: see [`STARTUP.md`](./STARTUP.md); cloud deployment walkthroughs: see [`OCI_DEPLOYMENT_GUIDE.md`](./OCI_DEPLOYMENT_GUIDE.md) (free, 3-VM split) and [`AWS_DEPLOYMENT_GUIDE.md`](./AWS_DEPLOYMENT_GUIDE.md) (paid, single instance)
 
 ## Table of Contents
 
@@ -143,6 +143,7 @@ the "Local Operations Scripts" section of [`STARTUP.md`](./STARTUP.md) for the f
 - `API_DOCS.md` - full API reference and architecture notes
 - `STARTUP.md` - run-from-source guide (no Docker)
 - `OCI_DEPLOYMENT_GUIDE.md` - from-zero walkthrough for deploying to Oracle Cloud Always Free tier
+- `AWS_DEPLOYMENT_GUIDE.md` - from-zero walkthrough for deploying to a single AWS EC2 instance (paid, no AWS free tier is large enough for this stack)
 
 ## Testing
 
@@ -162,7 +163,7 @@ the "Local Operations Scripts" section of [`STARTUP.md`](./STARTUP.md) for the f
 
 ## Deployment
 
-Two paths are documented:
+Three paths are documented:
 
 - **CI-driven SSH deploy (template, inactive)** — `scripts/deploy-staging.sh` and `scripts/deploy-production.sh`,
   wired into `.github/workflows/ci.yml` as `deploy-staging`/`deploy-production` jobs. Detailed instructions
@@ -174,11 +175,17 @@ Two paths are documented:
   > 2. Add secrets in GitHub repo settings: `STAGING_DEPLOY_KEY`, `STAGING_HOST`, `STAGING_USER`, `PROD_DEPLOY_KEY`, `PROD_HOST`, `PROD_USER`
   > 3. Uncomment the `REAL DEPLOYMENT` block in the relevant script and adjust paths
 
-- **Manual Oracle Cloud deployment (documented, self-hosted)** — [`OCI_DEPLOYMENT_GUIDE.md`](./OCI_DEPLOYMENT_GUIDE.md)
+- **Manual Oracle Cloud deployment (documented, self-hosted, free)** — [`OCI_DEPLOYMENT_GUIDE.md`](./OCI_DEPLOYMENT_GUIDE.md)
   walks through deploying the full stack across three Oracle Cloud Always Free VMs: backend services
   (`docker-compose.core.yml`) on a private-subnet VM, the frontend (`docker-compose.edge.yml`) on a
   public-subnet VM acting as reverse proxy, with networking, security lists, and troubleshooting covered
   end to end.
+
+- **Manual AWS deployment (documented, self-hosted, paid)** — [`AWS_DEPLOYMENT_GUIDE.md`](./AWS_DEPLOYMENT_GUIDE.md)
+  walks through deploying the unmodified `docker-compose.yml` (all 15 containers) to a single right-sized
+  EC2 instance, since AWS's free tier (1 GB RAM) can't fit this stack. Covers instance sizing, security
+  groups, Elastic IP setup and its real (non-free) cost, Windows-specific SSH setup, CORS configuration for
+  the deployed origin, an AWS Budgets auto-stop safety net, and stop/resume procedures.
 
 ## Contributing
 
