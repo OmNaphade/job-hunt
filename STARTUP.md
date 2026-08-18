@@ -50,6 +50,10 @@ foreach ($s in $services) {
 
 ## 3. Start Services
 
+This walkthrough uses the `dev` profile throughout. `uat` and `prod` profiles also exist
+for every service (isolated DB name, different logging) — see `ENVIRONMENTS.md` for the
+full dev/uat/prod setup, branch flow, and Docker Compose equivalents.
+
 Start each service with the `dev` profile (disables Vault and Eureka):
 ```powershell
 java -jar auth_service\target\auth_service-0.0.1-SNAPSHOT.jar --spring.profiles.active=dev

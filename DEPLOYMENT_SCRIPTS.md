@@ -23,12 +23,18 @@ Both scripts are **Bash scripts designed for GitHub Actions** (Linux runners). T
 2. **Add GitHub secrets** (*Settings → Secrets and variables → Actions*):
    - UAT: `UAT_DEPLOY_KEY`, `UAT_HOST`, `UAT_USER`
    - Production: `PROD_DEPLOY_KEY`, `PROD_HOST`, `PROD_USER`
-3. **Uncomment the `REAL DEPLOYMENT` block** in:
+3. **Create `env/uat.env` on the UAT server and `env/prod.env` on the production server**
+   (copy the matching `env/*.env.example` template and fill in real secrets — see
+   `ENVIRONMENTS.md`). The commented-out deploy logic in both scripts already runs
+   `docker compose --env-file env/uat.env ...` / `--env-file env/prod.env ...`, so this
+   step is required before uncommenting the next one.
+4. **Uncomment the `REAL DEPLOYMENT` block** in:
    - `scripts/deploy-uat.sh`
    - `scripts/deploy-production.sh`
-4. **Adjust** the deploy directory (`/app/job-portal`) and commands to match
+5. **Adjust** the deploy directory (`/app/job-portal`) and commands to match
    your infrastructure.
-5. **Push** to `develop` (UAT) or `main` (production) to trigger it.
+6. **Push** to `uat` (UAT) or `main` (production) to trigger it. (`develop` is the dev-tier
+   branch — it builds and tests but never deploys; see `ENVIRONMENTS.md`.)
 
 ---
 
@@ -317,7 +323,7 @@ docker compose ps
 | **Type** | Bash shell scripts |
 | **Runner** | GitHub Actions Linux (ubuntu-latest) |
 | **Auth** | SSH with key-based authentication |
-| **Trigger** | Push to main (prod) or develop (UAT) |
+| **Trigger** | Push to main (prod) or uat (UAT); develop builds/tests only |
 | **Duration** | 2-5 minutes per deployment |
 | **Rollback** | Manual: `docker compose down && docker compose up -d` |
 
