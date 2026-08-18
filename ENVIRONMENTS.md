@@ -1,15 +1,15 @@
 # Environments — Dev, UAT, Prod
 
-This repo runs three environments off **one codebase, one `main` branch by default, and
-Spring/Vite profiles** — not three separate forks or three copies of the code. This is the
-same pattern the industry has converged on (trunk-based development + config-per-environment)
-and it's what the repo's existing CI pipeline (`.github/workflows/ci.yml`) already half-expects.
+This repo runs three environments off **one codebase with three long-lived branches, each
+paired with a matching Spring/Vite profile** — `develop` for day-to-day development, `uat`
+for pre-release testing, `main` for production. Config (profiles + env files) differentiates
+the environments; the branch tells you which stage code is currently at.
 
-| Tier | Runs on | Branch | Spring profile | Frontend mode | DB name | Purpose |
+| Tier | Branch | Runs on | Spring profile | Frontend mode | DB name | Purpose |
 |---|---|---|---|---|---|---|
-| **dev** | Your laptop | any feature branch, or local `main` | `dev` | `development` | `jobapp_dev_db` | Day-to-day coding |
-| **uat** | A dedicated VM/host (not the prod box) | `develop` | `uat` | `uat` | `jobapp_uat_db` | Pre-release testing with real infra (Eureka, Kafka, etc.) |
-| **prod** | Your existing EC2/OCI instance | `main` | `prod` | `production` | `jobapp_db` (unchanged) | Live traffic |
+| **dev** | `develop` | Your laptop | `dev` | `development` | `jobapp_dev_db` | Day-to-day coding, integration of feature branches |
+| **uat** | `uat` | A dedicated VM/host (not the prod box) | `uat` | `uat` | `jobapp_uat_db` | Pre-release testing with real infra (Eureka, Kafka, etc.) |
+| **prod** | `main` | Your existing EC2/OCI instance | `prod` | `production` | `jobapp_db` (unchanged) | Live traffic — **only branch that auto-deploys** |
 
 **Nothing here changes your currently-running prod host unless you opt in.** Every new
 `${VAR:-default}` added to `docker-compose.yml` defaults to the exact value that was already
@@ -19,15 +19,22 @@ hardcoded there. If that host keeps using its existing `.env` file and just does
 
 ## 1. Branching
 
-- **`main`** = production. Protected in spirit; only promote tested code here.
-- **`develop`** = UAT. Created locally by this change (not yet pushed) — CI already had a
-  `develop` → UAT trigger wired up, it just had no branch to fire on.
-- **Feature branches** = dev. Branch off `develop` (or `main` if you're not using `develop`
-  day-to-day), open a PR into `develop`, then promote `develop` → `main` for a release.
+- **`develop`** = dev. Feature branches merge here via PR. Runs the `dev` profile. Never
+  auto-deploys — CI only builds and tests it.
+- **`uat`** = pre-release testing. Promote `develop` → `uat` (via PR or fast-forward merge)
+  when you want a build tested against real infra. Runs the `uat` profile. Pushing to `uat`
+  triggers the (currently stubbed) `deploy-uat` CI job — the only branch besides `main` that
+  triggers a deploy job at all, and even then only once you point it at a real UAT host.
+- **`main`** = production, deploy-ready. Promote `uat` → `main` for a release. Runs the `prod`
+  profile. **This is the only branch that's meant to actually go live** — `deploy-prod` runs
+  automatically on every push to `main`.
 
-You don't strictly need `develop`/PRs to use the dev/uat/prod *profiles* — those work standalone
-via `--spring.profiles.active` or `SPRING_PROFILES_ACTIVE` regardless of branch. The branch flow
-is the recommended promotion path once you have somewhere to run UAT.
+Promotion flow: `feature/*` → PR into `develop` → PR/merge `develop` → `uat` → test → PR/merge
+`uat` → `main` → release.
+
+You don't strictly need these branches to use the dev/uat/prod *profiles* — those work
+standalone via `--spring.profiles.active` or `SPRING_PROFILES_ACTIVE` regardless of branch.
+The branch flow is the recommended promotion path once you have somewhere to run UAT.
 
 ## 2. Backend: Spring profiles
 
@@ -109,10 +116,17 @@ file, nothing changes — same defaults, same file it already uses.
 
 ## 6. CI/CD status
 
-`.github/workflows/ci.yml` already had a `develop` → staging → now-renamed-to-**UAT** deploy
-job and a `main` → **prod** deploy job. Both call scripts in `scripts/` that are currently
-**stubs** (no real server configured yet — they print a message and exit 0 so the pipeline
-stays green). Renamed for consistency with this change:
+`.github/workflows/ci.yml` builds and tests `main`, `uat`, and `develop` on every push, but
+**only `main` auto-deploys** to a real environment:
+
+- Push to `develop` → build + test only. No deploy job runs at all.
+- Push to `uat` → build + test, then `deploy-uat` runs (or trigger it manually via
+  `workflow_dispatch` from the Actions tab without pushing).
+- Push to `main` → build + test, then `deploy-prod` runs automatically.
+
+Both `deploy-uat` and `deploy-prod` currently call **stub** scripts (no real server configured
+yet — they print a message and exit 0 so the pipeline stays green). Renamed for consistency
+with this change:
 
 - `scripts/deploy-staging.{sh,ps1}` → `scripts/deploy-uat.{sh,ps1}`
 - CI job `deploy-staging` → `deploy-uat`, `deploy-production` → `deploy-prod`

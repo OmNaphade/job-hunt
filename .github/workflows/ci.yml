@@ -2,9 +2,10 @@ name: CI/CD — Job Portal
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, uat ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop, uat ]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -174,7 +175,7 @@ jobs:
   build-docker-images:
     runs-on: ubuntu-latest
     needs: [ build-and-test, build-infra, frontend-build-test ]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/uat')
     permissions:
       contents: read
       packages: write
@@ -375,7 +376,9 @@ jobs:
   deploy-uat:
     runs-on: ubuntu-latest
     needs: [ ci-integration-smoke, build-docker-images ]
-    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    # Pushing to develop builds/tests only - it never deploys anywhere. Pushing to the
+    # dedicated uat branch (or a manual "Run workflow") is what triggers this job.
+    if: (github.ref == 'refs/heads/uat' && github.event_name == 'push') || github.event_name == 'workflow_dispatch'
     environment:
       name: uat
       url: https://uat.job-portal.example.com
