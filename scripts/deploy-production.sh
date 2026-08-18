@@ -45,10 +45,10 @@ echo "   Enable it by adding secrets and uncommenting the block in scripts/deplo
 #
 #   # Pull latest images from registry
 #   docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD ghcr.io
-#   docker compose pull
+#   docker compose --env-file env/prod.env pull
 #
 #   echo "🔄 Rolling update services..."
-#   docker compose up -d --no-deps
+#   docker compose --env-file env/prod.env up -d --no-deps
 #
 #   echo "⏳ Waiting for services to be ready..."
 #   for service in api-gateway auth-service user-service job-service company-service application-service notification-service; do

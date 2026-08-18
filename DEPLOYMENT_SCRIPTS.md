@@ -3,13 +3,13 @@
 ## Overview
 
 Two deployment scripts are provided:
-- `deploy-staging.sh` - Deploy to staging environment
+- `deploy-uat.sh` - Deploy to UAT environment
 - `deploy-production.sh` - Deploy to production environment
 
 Both scripts are **Bash scripts designed for GitHub Actions** (Linux runners). They handle SSH-based deployment to remote servers.
 
 > ⚠️ **Current status: deployment is NOT active yet.**
-> No staging/production servers exist, so the real SSH + Docker logic in both
+> No UAT/production servers exist, so the real SSH + Docker logic in both
 > scripts is **commented out**. Each script prints a placeholder message and
 > exits successfully, keeping the pipeline green.
 >
@@ -21,14 +21,14 @@ Both scripts are **Bash scripts designed for GitHub Actions** (Linux runners). T
 
 1. **Provision servers** (see "Setup Server for Deployment" below).
 2. **Add GitHub secrets** (*Settings → Secrets and variables → Actions*):
-   - Staging: `STAGING_DEPLOY_KEY`, `STAGING_HOST`, `STAGING_USER`
+   - UAT: `UAT_DEPLOY_KEY`, `UAT_HOST`, `UAT_USER`
    - Production: `PROD_DEPLOY_KEY`, `PROD_HOST`, `PROD_USER`
 3. **Uncomment the `REAL DEPLOYMENT` block** in:
-   - `scripts/deploy-staging.sh`
+   - `scripts/deploy-uat.sh`
    - `scripts/deploy-production.sh`
 4. **Adjust** the deploy directory (`/app/job-portal`) and commands to match
    your infrastructure.
-5. **Push** to `develop` (staging) or `main` (production) to trigger it.
+5. **Push** to `develop` (UAT) or `main` (production) to trigger it.
 
 ---
 
@@ -38,7 +38,7 @@ Both scripts require these environment variables:
 
 ```
 DEPLOY_KEY       → SSH private key (for authentication)
-DEPLOY_HOST      → Server hostname/IP (e.g., staging.job-portal.com)
+DEPLOY_HOST      → Server hostname/IP (e.g., UAT.job-portal.com)
 DEPLOY_USER      → SSH username (e.g., deploy)
 DOCKER_USERNAME  → Docker registry username (e.g., github.actor)
 DOCKER_PASSWORD  → Docker registry password (e.g., GitHub token)
@@ -48,16 +48,16 @@ DOCKER_PASSWORD  → Docker registry password (e.g., GitHub token)
 
 ## What Each Script Does
 
-### deploy-staging.sh
+### deploy-uat.sh
 1. ✅ Validates required environment variables
 2. ✅ Sets up SSH key authentication
-3. ✅ Connects to staging server via SSH
+3. ✅ Connects to UAT server via SSH
 4. ✅ Pulls latest Docker images from registry
 5. ✅ Restarts services with `docker compose up -d`
 6. ✅ Waits for services to be healthy (health checks)
 7. ✅ Confirms deployment successful
 
-**Location:** `scripts/deploy-staging.sh`
+**Location:** `scripts/deploy-uat.sh`
 
 ### deploy-production.sh
 1. ✅ Validates required environment variables
@@ -103,25 +103,25 @@ If you have Linux/WSL/Bash available:
 ```bash
 # Set environment variables
 export DEPLOY_KEY="$(cat ~/.ssh/your_key)"
-export DEPLOY_HOST="staging.job-portal.com"
+export DEPLOY_HOST="UAT.job-portal.com"
 export DEPLOY_USER="deploy"
 export DOCKER_USERNAME="your-github-username"
 export DOCKER_PASSWORD="your-github-token"
 
 # Run script
-./scripts/deploy-staging.sh
+./scripts/deploy-uat.sh
 ```
 
 ### On Windows?
 - Use WSL2 (Windows Subsystem for Linux)
-- Or use Git Bash: `bash ./scripts/deploy-staging.sh`
+- Or use Git Bash: `bash ./scripts/deploy-uat.sh`
 - Or wait for GitHub Actions to test it (it runs on Linux)
 
 ---
 
 ## Server Requirements
 
-Your staging and production servers must have:
+Your UAT and production servers must have:
 
 1. **SSH Access**
    - SSH server running
@@ -195,7 +195,7 @@ ssh-copy-id -i deployment_key.pub deploy@your-server.com
 
 # Get private key content for GitHub secret
 cat deployment_key
-# Copy entire output → GitHub secret as STAGING_DEPLOY_KEY or PROD_DEPLOY_KEY
+# Copy entire output → GitHub secret as UAT_DEPLOY_KEY or PROD_DEPLOY_KEY
 ```
 
 ---
@@ -273,9 +273,9 @@ Go to: **Settings → Secrets and variables → Actions**
 
 Add:
 ```
-STAGING_DEPLOY_KEY    → SSH private key
-STAGING_HOST          → Server hostname
-STAGING_USER          → SSH username
+UAT_DEPLOY_KEY    → SSH private key
+UAT_HOST          → Server hostname
+UAT_USER          → SSH username
 
 PROD_DEPLOY_KEY       → SSH private key
 PROD_HOST             → Server hostname
@@ -317,14 +317,14 @@ docker compose ps
 | **Type** | Bash shell scripts |
 | **Runner** | GitHub Actions Linux (ubuntu-latest) |
 | **Auth** | SSH with key-based authentication |
-| **Trigger** | Push to main (prod) or develop (staging) |
+| **Trigger** | Push to main (prod) or develop (UAT) |
 | **Duration** | 2-5 minutes per deployment |
 | **Rollback** | Manual: `docker compose down && docker compose up -d` |
 
 ---
 
 **Next Steps:**
-1. ✅ Set up production/staging servers
+1. ✅ Set up production/UAT servers
 2. ✅ Generate SSH keys
 3. ✅ Add GitHub secrets
 4. ✅ Test SSH connection: `ssh -i key deploy@host 'echo OK'`

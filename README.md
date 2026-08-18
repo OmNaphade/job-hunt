@@ -150,6 +150,7 @@ the "Local Operations Scripts" section of [`STARTUP.md`](./STARTUP.md) for the f
 - `.github/workflows/ci.yml` - CI pipeline
 - `API_DOCS.md` - full API reference and architecture notes
 - `STARTUP.md` - run-from-source guide (no Docker)
+- `ENVIRONMENTS.md` - dev/uat/prod environment setup: Spring profiles, `env/*.env` files, branch flow
 - `OCI_DEPLOYMENT_GUIDE.md` - from-zero walkthrough for deploying to Oracle Cloud Always Free tier
 - `AWS_DEPLOYMENT_GUIDE.md` - from-zero walkthrough for deploying to a single AWS EC2 instance (paid, no AWS free tier is large enough for this stack)
 
@@ -173,14 +174,14 @@ the "Local Operations Scripts" section of [`STARTUP.md`](./STARTUP.md) for the f
 
 Three paths are documented:
 
-- **CI-driven SSH deploy (template, inactive)** — `scripts/deploy-staging.sh` and `scripts/deploy-production.sh`,
-  wired into `.github/workflows/ci.yml` as `deploy-staging`/`deploy-production` jobs. Detailed instructions
-  are in `DEPLOYMENT_SCRIPTS.md`.
+- **CI-driven SSH deploy (template, inactive)** — `scripts/deploy-uat.sh` and `scripts/deploy-production.sh`,
+  wired into `.github/workflows/ci.yml` as `deploy-uat`/`deploy-prod` jobs. Detailed instructions
+  are in `DEPLOYMENT_SCRIPTS.md`; environment/profile setup is in `ENVIRONMENTS.md`.
 
   > Note: the real SSH + Docker logic in both scripts is currently commented out — they print a placeholder
   > and exit successfully so the pipeline stays green. To enable real deployments:
   > 1. Provision servers and ensure Docker is installed
-  > 2. Add secrets in GitHub repo settings: `STAGING_DEPLOY_KEY`, `STAGING_HOST`, `STAGING_USER`, `PROD_DEPLOY_KEY`, `PROD_HOST`, `PROD_USER`
+  > 2. Add secrets in GitHub repo settings: `UAT_DEPLOY_KEY`, `UAT_HOST`, `UAT_USER`, `PROD_DEPLOY_KEY`, `PROD_HOST`, `PROD_USER`
   > 3. Uncomment the `REAL DEPLOYMENT` block in the relevant script and adjust paths
 
 - **Manual Oracle Cloud deployment (documented, self-hosted, free)** — [`OCI_DEPLOYMENT_GUIDE.md`](./OCI_DEPLOYMENT_GUIDE.md)

@@ -1,30 +1,31 @@
 #!/bin/bash
-# Staging deployment script
+# UAT deployment script
 # Called by: GitHub Actions CI/CD pipeline
-# Purpose: Deploy latest staging build to staging environment
+# Purpose: Deploy latest build to the UAT (pre-release) environment
 #
-# NOTE: Staging server is NOT set up yet, so the actual deployment logic
+# NOTE: UAT server is NOT set up yet, so the actual deployment logic
 #       below is COMMENTED OUT. This script currently just prints a placeholder
 #       message and succeeds, so the pipeline stays green.
 #
-#       When your staging server is ready:
-#         1. Add GitHub secrets: STAGING_DEPLOY_KEY, STAGING_HOST, STAGING_USER
+#       When your UAT server is ready:
+#         1. Add GitHub secrets: UAT_DEPLOY_KEY, UAT_HOST, UAT_USER
 #         2. Uncomment the "REAL DEPLOYMENT" block below
 #         3. Adjust paths/commands to match your infrastructure
-#       See DEPLOYMENT_SCRIPTS.md for full setup instructions.
+#         4. Copy env/uat.env.example to env/uat.env on that server and fill it in
+#       See DEPLOYMENT_SCRIPTS.md and ENVIRONMENTS.md for full setup instructions.
 
 set -e
 
-echo "🚀 Staging deploy step reached."
-echo "ℹ️  Staging server not configured yet — skipping real deployment."
-echo "   Enable it by adding secrets and uncommenting the block in scripts/deploy-staging.sh"
+echo "🚀 UAT deploy step reached."
+echo "ℹ️  UAT server not configured yet — skipping real deployment."
+echo "   Enable it by adding secrets and uncommenting the block in scripts/deploy-uat.sh"
 
 # ---------------------------------------------------------------------------
-# REAL DEPLOYMENT (uncomment when staging server is ready)
+# REAL DEPLOYMENT (uncomment when UAT server is ready)
 # ---------------------------------------------------------------------------
 # # Fail early if secrets are missing
 # if [ -z "$DEPLOY_KEY" ] || [ -z "$DEPLOY_HOST" ] || [ -z "$DEPLOY_USER" ]; then
-#   echo "❌ Missing deployment secrets (STAGING_DEPLOY_KEY / STAGING_HOST / STAGING_USER)."
+#   echo "❌ Missing deployment secrets (UAT_DEPLOY_KEY / UAT_HOST / UAT_USER)."
 #   exit 1
 # fi
 #
@@ -34,7 +35,7 @@ echo "   Enable it by adding secrets and uncommenting the block in scripts/deplo
 # chmod 600 ~/.ssh/deploy_key
 # ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 #
-# # Connect to staging server and deploy
+# # Connect to UAT server and deploy
 # ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
 #     "$DEPLOY_USER@$DEPLOY_HOST" << 'EOF'
 #
@@ -45,10 +46,10 @@ echo "   Enable it by adding secrets and uncommenting the block in scripts/deplo
 #
 #   # Pull latest images from registry
 #   docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD ghcr.io
-#   docker compose pull
+#   docker compose --env-file env/uat.env pull
 #
 #   echo "🔄 Restarting services..."
-#   docker compose up -d
+#   docker compose --env-file env/uat.env up -d
 #
 #   echo "⏳ Waiting for services to be ready..."
 #   for i in {1..60}; do
@@ -60,7 +61,7 @@ echo "   Enable it by adding secrets and uncommenting the block in scripts/deplo
 #     sleep 5
 #   done
 #
-#   echo "✅ Staging deployment complete!"
+#   echo "✅ UAT deployment complete!"
 #
 # EOF
 #
